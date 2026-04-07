@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pixel Camp Settings</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a2e1a;
+      color: #eee;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .header { text-align: center; padding: 20px 0; }
+    .header h1 { font-size: 24px; color: #7bc67b; }
+    .header p { color: #888; font-size: 14px; margin-top: 4px; }
+    .card {
+      background: #16301e;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 16px 0;
+    }
+    .card h2 { font-size: 16px; color: #7bc67b; margin-bottom: 12px; }
+    label { display: block; font-size: 14px; color: #aaa; margin-bottom: 6px; }
+    input[type="text"] {
+      width: 100%; padding: 12px; font-size: 16px;
+      background: #0f3420; border: 1px solid #7bc67b;
+      border-radius: 8px; color: #fff; margin-bottom: 12px;
+    }
+    input::placeholder { color: #666; }
+    .hint { font-size: 12px; color: #666; margin-top: -8px; margin-bottom: 12px; }
+    .btn {
+      display: block; width: 100%; padding: 14px; font-size: 16px;
+      font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin-top: 20px;
+    }
+    .btn-save { background: #7bc67b; color: #1a2e1a; }
+    .btn-cancel { background: #333; color: #aaa; margin-top: 10px; }
+    .toggle-group {
+      display: flex; border-radius: 8px; overflow: hidden;
+      border: 1px solid #7bc67b; margin-bottom: 12px;
+    }
+    .toggle-group label {
+      flex: 1; text-align: center; padding: 12px; font-size: 14px;
+      font-weight: bold; color: #aaa; background: #0f3420;
+      cursor: pointer; margin-bottom: 0;
+    }
+    .toggle-group input[type="radio"] { display: none; }
+    .toggle-group input[type="radio"]:checked + label {
+      background: #7bc67b; color: #1a2e1a;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div style="font-size:32px">&#x1F3D5;</div>
+    <h1>Pixel Camp</h1>
+    <p>Configure your camp location</p>
+  </div>
+
+  <div class="card">
+    <h2>Location</h2>
+    <label for="zipCode">ZIP Code or City</label>
+    <input type="text" id="zipCode" placeholder="e.g. 17948" maxlength="30">
+    <p class="hint">US ZIP code or city name for weather data</p>
+  </div>
+
+  <div class="card">
+    <h2>Detail Level</h2>
+    <div class="toggle-group">
+      <input type="radio" name="displayMode" id="modeLow" value="0">
+      <label for="modeLow">Low</label>
+      <input type="radio" name="displayMode" id="modeMed" value="1">
+      <label for="modeMed">Med</label>
+      <input type="radio" name="displayMode" id="modeHigh" value="2">
+      <label for="modeHigh">High</label>
+    </div>
+    <p class="hint">Low: time + weather. Med: + sun times, hi/lo. High: + forecast, town.</p>
+  </div>
+
+  <div class="card">
+    <h2>Developer</h2>
+    <div class="toggle-group">
+      <input type="radio" name="devMode" id="devOff" value="0">
+      <label for="devOff">Off</label>
+      <input type="radio" name="devMode" id="devOn" value="1">
+      <label for="devOn">Dev Mode</label>
+    </div>
+    <p class="hint">Tap to cycle through time/weather presets for testing.</p>
+  </div>
+
+  <button class="btn btn-save" id="saveBtn">Save Settings</button>
+  <button class="btn btn-cancel" id="cancelBtn">Cancel</button>
+
+  <script>
+    function getParam(name) {
+      var match = location.search.match(new RegExp('[?&]' + name + '=([^&]*)'));
+      return match ? decodeURIComponent(match[1]) : '';
+    }
+
+    var zipField = document.getElementById('zipCode');
+    zipField.value = getParam('zip') || '';
+
+    var currentMode = getParam('mode') || '1';
+    if (currentMode === '2') document.getElementById('modeHigh').checked = true;
+    else if (currentMode === '1') document.getElementById('modeMed').checked = true;
+    else document.getElementById('modeLow').checked = true;
+
+    var currentDev = getParam('dev') || '0';
+    if (currentDev === '1') document.getElementById('devOn').checked = true;
+    else document.getElementById('devOff').checked = true;
+
+    var returnTo = getParam('return_to');
+
+    function returnResult(jsonString) {
+      var encoded = encodeURIComponent(jsonString);
+      if (returnTo) {
+        document.location = returnTo + 'response=' + encoded + '#' + encoded;
+      } else {
+        document.location = 'pebblejs://close#' + encoded;
+      }
+    }
+    function returnCancel() {
+      if (returnTo) document.location = returnTo;
+      else document.location = 'pebblejs://close';
+    }
+
+    document.getElementById('saveBtn').addEventListener('click', function () {
+      var selectedMode = document.querySelector('input[name="displayMode"]:checked');
+      var selectedDev = document.querySelector('input[name="devMode"]:checked');
+      var result = {
+        zipCode: zipField.value.trim() || '17948',
+        displayMode: selectedMode ? selectedMode.value : '1',
+        devMode: selectedDev ? selectedDev.value : '0'
+      };
+      returnResult(JSON.stringify(result));
+    });
+
+    document.getElementById('cancelBtn').addEventListener('click', function () {
+      returnCancel();
+    });
+  </script>
+</body>
+</html>

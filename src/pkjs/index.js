@@ -192,6 +192,36 @@ function saveSettings() {
   localStorage.setItem('settings', JSON.stringify(settings));
 }
 
+Pebble.addEventListener('showConfiguration', function () {
+  var url = 'https://hobbykitjr.github.io/PebbleCamp/config/index.html' +
+    '?zip=' + encodeURIComponent(settings.zipCode) +
+    '&mode=' + settings.displayMode +
+    '&dev=' + settings.devMode;
+  console.log('Opening config: ' + url);
+  Pebble.openURL(url);
+});
+
+Pebble.addEventListener('webviewclosed', function (e) {
+  if (e && e.response && e.response.length > 0) {
+    try {
+      var rawResponse = e.response;
+      if (rawResponse.indexOf('response=') === 0) rawResponse = rawResponse.substring(9);
+      var config = JSON.parse(decodeURIComponent(rawResponse));
+      if (config.zipCode) settings.zipCode = config.zipCode;
+      if (config.displayMode !== undefined) settings.displayMode = parseInt(config.displayMode);
+      if (config.devMode !== undefined) settings.devMode = parseInt(config.devMode);
+      saveSettings();
+      console.log('Settings updated: zip=' + settings.zipCode + ' mode=' + settings.displayMode);
+      Pebble.sendAppMessage({'DISPLAY_MODE': settings.displayMode, 'DEV_MODE': settings.devMode},
+        function() { console.log('Settings sent'); },
+        function() { console.log('Settings send failed'); });
+      fetchAllData();
+    } catch (err) {
+      console.log('Config parse error: ' + err);
+    }
+  }
+});
+
 Pebble.addEventListener('ready', function () {
   console.log('PebbleKit JS ready');
   loadSettings();
