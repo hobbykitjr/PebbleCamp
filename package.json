@@ -1,0 +1,42 @@
+{
+  "name": "pebble-camp",
+  "author": "Hobbykitjr",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "Pixel Camp",
+    "uuid": "a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": ["gabbro"],
+    "capabilities": ["location", "configurable"],
+    "messageKeys": {
+      "SUNRISE_HOUR": 0,
+      "SUNRISE_MIN": 1,
+      "SUNSET_HOUR": 2,
+      "SUNSET_MIN": 3,
+      "TEMPERATURE": 4,
+      "WEATHER_CODE": 5,
+      "TEMP_HIGH": 6,
+      "TEMP_LOW": 7,
+      "TOWN_NAME": 8,
+      "DISPLAY_MODE": 9,
+      "DEV_MODE": 10,
+      "REQUEST_DATA": 11,
+      "FC_WX1": 12,
+      "FC_WX2": 13,
+      "FC_WX3": 14,
+      "FC_H1": 15,
+      "FC_H2": 16,
+      "FC_H3": 17
+    },
+    "watchapp": {
+      "watchface": true
+    },
+    "resources": {
+      "media": []
+    }
+  }
+}
