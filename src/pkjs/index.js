@@ -8,7 +8,7 @@
  */
 
 var settings = {
-  zipCode: '80517',   // Estes Park, CO (default — mountain town)
+  zipCode: '17948',   // Near Locust Lake State Park, PA
   displayMode: 1,
   devMode: 0
 };

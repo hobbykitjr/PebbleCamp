@@ -15,21 +15,9 @@
 #define ANIM_INTERVAL  80
 #define ANIM_DURATION  5000
 
-// Layout
-#define MTN_PEAK1_X  70
-#define MTN_PEAK1_Y  55
-#define MTN_PEAK2_X  160
-#define MTN_PEAK2_Y  45
-#define MTN_PEAK3_X  210
-#define MTN_PEAK3_Y  65
-#define LAKE_TOP_Y   120
-#define LAKE_BOT_Y   155
-#define GROUND_Y     155
-
-// Sun/moon arc
+// Layout — percentages of screen height/width, computed at draw time
+// Use pct_h(pct) and pct_w(pct) macros with current bounds
 #define BODY_RADIUS  10
-#define ARC_TOP_Y    10
-#define ARC_BOT_Y    95
 
 // Detail levels
 #define DETAIL_LOW   0
@@ -139,12 +127,30 @@ static int s_anim_ms=0;
 static int s_bat=100;
 static bool s_bt=true;
 static Data s_d={.sr_h=6,.sr_m=0,.ss_h=20,.ss_m=0,.temp=55,.wx=WX_CLEAR,
-  .hi=65,.lo=40,.town="Estes Park, CO",.valid=false};
+  .hi=65,.lo=40,.town="Locust Lake, PA",.valid=false};
 
 static char s_tbuf[8],s_dbuf[16],s_sr[8],s_ss[8],s_tmp[8];
 static int s_det=DETAIL_MED, s_hr=12, s_mn=0;
 static bool s_dev=false;
 static int s_fire_frame=0;  // Animation frame counter
+
+// Layout values (set once in win_load based on screen size)
+static int L_W, L_H;        // Screen width/height
+static int L_MTN1_X, L_MTN1_Y, L_MTN2_X, L_MTN2_Y, L_MTN3_X, L_MTN3_Y;
+static int L_LAKE_TOP, L_LAKE_BOT, L_GROUND;
+static int L_ARC_TOP, L_ARC_BOT;
+
+static void init_layout(int w, int h) {
+  L_W=w; L_H=h;
+  L_MTN1_X=w*27/100;  L_MTN1_Y=h*21/100;
+  L_MTN2_X=w*62/100;  L_MTN2_Y=h*17/100;
+  L_MTN3_X=w*81/100;  L_MTN3_Y=h*25/100;
+  L_LAKE_TOP=h*46/100;
+  L_LAKE_BOT=h*60/100;
+  L_GROUND=h*60/100;
+  L_ARC_TOP=h*4/100;
+  L_ARC_BOT=h*37/100;
+}
 
 // DEV presets
 static int s_pre=-1;
@@ -167,7 +173,7 @@ static void apply_pre(int i) {
   s_hr=p->h; s_mn=p->m;
   s_d.sr_h=p->srh; s_d.sr_m=p->srm; s_d.ss_h=p->ssh; s_d.ss_m=p->ssm;
   s_d.temp=p->tmp; s_d.wx=p->wx; s_d.hi=p->hi; s_d.lo=p->lo;
-  snprintf(s_d.town,sizeof(s_d.town),"Estes Park, CO");
+  snprintf(s_d.town,sizeof(s_d.town),"Locust Lake, PA");
   s_d.valid=true;
   if(clock_is_24h_style()) snprintf(s_tbuf,sizeof(s_tbuf),"%d:%02d",p->h,p->m);
   else { int h=p->h%12; if(!h)h=12; snprintf(s_tbuf,sizeof(s_tbuf),"%d:%02d",h,p->m); }
@@ -209,7 +215,7 @@ static int moon_phase(void) {
   return (ph*30)/2953;
 }
 static void arc_xy(GRect b,int prog,int *ox,int *oy) {
-  int top=ARC_TOP_Y, bot=ARC_BOT_Y, ah=bot-top;
+  int top=L_ARC_TOP, bot=L_ARC_BOT, ah=bot-top;
   *ox=b.size.w*10/100+(b.size.w*80/100*prog)/100;
   int c=prog-50; *oy=bot-(ah*(2500-c*c))/2500;
 }
@@ -221,7 +227,7 @@ static int fmt_h(int h){if(clock_is_24h_style())return h; int r=h%12; return r?r
 static void draw_sky(GContext *ctx, GRect b) {
   if(is_night()) {
     graphics_context_set_fill_color(ctx,C_SKY_NIGHT);
-    graphics_fill_rect(ctx,GRect(0,0,b.size.w,LAKE_TOP_Y),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(0,0,b.size.w,L_LAKE_TOP),0,GCornerNone);
   } else {
     int twi=twi_pct();
     #ifdef PBL_COLOR
@@ -229,8 +235,8 @@ static void draw_sky(GContext *ctx, GRect b) {
       GColor sc[]={GColorOxfordBlue,GColorImperialPurple,GColorPurple,
                    GColorMagenta,GColorSunsetOrange,GColorOrange,GColorRajah};
       int n=7;
-      for(int y=0;y<LAKE_TOP_Y;y+=2){
-        int pos=(y*(n-1)*1000)/LAKE_TOP_Y;
+      for(int y=0;y<L_LAKE_TOP;y+=2){
+        int pos=(y*(n-1)*1000)/L_LAKE_TOP;
         int idx=pos/1000; int frac=pos%1000;
         if(idx>=n-1){idx=n-2;frac=999;}
         int thr=((y/2)%2==0)?550:450;
@@ -240,11 +246,11 @@ static void draw_sky(GContext *ctx, GRect b) {
       }
     } else {
       graphics_context_set_fill_color(ctx,C_SKY);
-      graphics_fill_rect(ctx,GRect(0,0,b.size.w,LAKE_TOP_Y),0,GCornerNone);
+      graphics_fill_rect(ctx,GRect(0,0,b.size.w,L_LAKE_TOP),0,GCornerNone);
     }
     #else
     graphics_context_set_fill_color(ctx,C_SKY);
-    graphics_fill_rect(ctx,GRect(0,0,b.size.w,LAKE_TOP_Y),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(0,0,b.size.w,L_LAKE_TOP),0,GCornerNone);
     #endif
   }
 }
@@ -255,21 +261,23 @@ static void draw_sky(GContext *ctx, GRect b) {
 static void draw_stars(GContext *ctx, GRect b) {
   if(!is_night()) return;
   graphics_context_set_fill_color(ctx,GColorWhite);
-  // Fixed star positions (above mountains)
-  int st[][2]={{25,15},{55,8},{90,20},{130,12},{170,8},{210,18},{240,12},
-               {40,35},{80,30},{150,25},{195,32},{225,28},{60,48},{115,38},
-               {185,42},{35,55},{145,50},{220,45}};
+  // Star positions as % of screen
+  int w=b.size.w, h=b.size.h;
+  int st[][2]={{10,6},{21,3},{35,8},{50,5},{65,3},{81,7},{92,5},
+               {15,14},{31,12},{58,10},{75,12},{87,11},{23,18},{44,15},
+               {71,16},{13,21},{56,19},{85,17}};
   for(int i=0;i<18;i++){
-    if(st[i][1]<MTN_PEAK2_Y-5) // Only above mountain peaks
-      graphics_draw_pixel(ctx,GPoint(st[i][0],st[i][1]));
+    int sx=st[i][0]*w/100, sy=st[i][1]*h/100;
+    if(sy<L_MTN2_Y-5)
+      graphics_draw_pixel(ctx,GPoint(sx,sy));
   }
   // A few bright stars (2x2)
   #ifdef PBL_COLOR
   graphics_context_set_fill_color(ctx,GColorPastelYellow);
   #endif
-  graphics_fill_rect(ctx,GRect(95,10,2,2),0,GCornerNone);
-  graphics_fill_rect(ctx,GRect(180,5,2,2),0,GCornerNone);
-  graphics_fill_rect(ctx,GRect(45,22,2,2),0,GCornerNone);
+  graphics_fill_rect(ctx,GRect(w*37/100,h*4/100,2,2),0,GCornerNone);
+  graphics_fill_rect(ctx,GRect(w*69/100,h*2/100,2,2),0,GCornerNone);
+  graphics_fill_rect(ctx,GRect(w*17/100,h*9/100,2,2),0,GCornerNone);
 }
 
 // ============================================================================
@@ -278,40 +286,40 @@ static void draw_stars(GContext *ctx, GRect b) {
 static void draw_mountains(GContext *ctx, GRect b) {
   // Back mountain (largest, darkest)
   graphics_context_set_fill_color(ctx,C_MTN_FAR);
-  for(int y=MTN_PEAK2_Y;y<LAKE_TOP_Y;y++){
-    int spread=(y-MTN_PEAK2_Y)*2;
-    int lx=MTN_PEAK2_X-spread, rx=MTN_PEAK2_X+spread;
+  for(int y=L_MTN2_Y;y<L_LAKE_TOP;y++){
+    int spread=(y-L_MTN2_Y)*2;
+    int lx=L_MTN2_X-spread, rx=L_MTN2_X+spread;
     if(lx<0)lx=0; if(rx>b.size.w)rx=b.size.w;
     graphics_fill_rect(ctx,GRect(lx,y,rx-lx,1),0,GCornerNone);
   }
   // Snow cap
   graphics_context_set_fill_color(ctx,C_SNOW);
-  for(int y=MTN_PEAK2_Y;y<MTN_PEAK2_Y+12;y++){
-    int spread=(y-MTN_PEAK2_Y)*2;
-    int lx=MTN_PEAK2_X-spread+2, rx=MTN_PEAK2_X+spread-2;
+  for(int y=L_MTN2_Y;y<L_MTN2_Y+12;y++){
+    int spread=(y-L_MTN2_Y)*2;
+    int lx=L_MTN2_X-spread+2, rx=L_MTN2_X+spread-2;
     if(lx<rx) graphics_fill_rect(ctx,GRect(lx,y,rx-lx,1),0,GCornerNone);
   }
 
   // Left mountain (medium)
   graphics_context_set_fill_color(ctx,C_MTN_MID);
-  for(int y=MTN_PEAK1_Y;y<LAKE_TOP_Y;y++){
-    int spread=(y-MTN_PEAK1_Y)*18/10;
-    int lx=MTN_PEAK1_X-spread, rx=MTN_PEAK1_X+spread;
+  for(int y=L_MTN1_Y;y<L_LAKE_TOP;y++){
+    int spread=(y-L_MTN1_Y)*18/10;
+    int lx=L_MTN1_X-spread, rx=L_MTN1_X+spread;
     if(lx<0)lx=0; if(rx>b.size.w)rx=b.size.w;
     graphics_fill_rect(ctx,GRect(lx,y,rx-lx,1),0,GCornerNone);
   }
   graphics_context_set_fill_color(ctx,C_SNOW);
-  for(int y=MTN_PEAK1_Y;y<MTN_PEAK1_Y+10;y++){
-    int spread=(y-MTN_PEAK1_Y)*18/10;
-    int lx=MTN_PEAK1_X-spread+2, rx=MTN_PEAK1_X+spread-2;
+  for(int y=L_MTN1_Y;y<L_MTN1_Y+10;y++){
+    int spread=(y-L_MTN1_Y)*18/10;
+    int lx=L_MTN1_X-spread+2, rx=L_MTN1_X+spread-2;
     if(lx<rx) graphics_fill_rect(ctx,GRect(lx,y,rx-lx,1),0,GCornerNone);
   }
 
   // Right foothill (smallest, lightest)
   graphics_context_set_fill_color(ctx,C_MTN_NEAR);
-  for(int y=MTN_PEAK3_Y;y<LAKE_TOP_Y;y++){
-    int spread=(y-MTN_PEAK3_Y)*15/10;
-    int lx=MTN_PEAK3_X-spread, rx=MTN_PEAK3_X+spread;
+  for(int y=L_MTN3_Y;y<L_LAKE_TOP;y++){
+    int spread=(y-L_MTN3_Y)*15/10;
+    int lx=L_MTN3_X-spread, rx=L_MTN3_X+spread;
     if(lx<0)lx=0; if(rx>b.size.w)rx=b.size.w;
     graphics_fill_rect(ctx,GRect(lx,y,rx-lx,1),0,GCornerNone);
   }
@@ -369,25 +377,25 @@ static void draw_moon(GContext *ctx, GRect b) {
 static void draw_lake(GContext *ctx, GRect b) {
   #ifdef PBL_COLOR
   // Gradient lake
-  int lh=LAKE_BOT_Y-LAKE_TOP_Y;
+  int lh=L_LAKE_BOT-L_LAKE_TOP;
   for(int y=0;y<lh;y++){
     GColor c=(y<lh/2)?C_LAKE:C_LAKE_LT;
     graphics_context_set_fill_color(ctx,c);
-    graphics_fill_rect(ctx,GRect(0,LAKE_TOP_Y+y,b.size.w,1),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(0,L_LAKE_TOP+y,b.size.w,1),0,GCornerNone);
   }
   // Subtle wave shimmer
   graphics_context_set_fill_color(ctx,GColorPictonBlue);
   int phase=s_fire_frame*50; // Reuse animation counter
   for(int x=10;x<b.size.w-10;x+=12){
-    int wy=LAKE_TOP_Y+8+(sin_lookup((phase+x*200)%TRIG_MAX_ANGLE)*2)/TRIG_MAX_RATIO;
+    int wy=L_LAKE_TOP+8+(sin_lookup((phase+x*200)%TRIG_MAX_ANGLE)*2)/TRIG_MAX_RATIO;
     graphics_fill_rect(ctx,GRect(x,wy,6,1),0,GCornerNone);
   }
   // Shore reflection line
   graphics_context_set_fill_color(ctx,GColorTiffanyBlue);
-  graphics_fill_rect(ctx,GRect(20,LAKE_BOT_Y-3,b.size.w-40,1),0,GCornerNone);
+  graphics_fill_rect(ctx,GRect(20,L_LAKE_BOT-3,b.size.w-40,1),0,GCornerNone);
   #else
   graphics_context_set_fill_color(ctx,C_LAKE);
-  graphics_fill_rect(ctx,GRect(0,LAKE_TOP_Y,b.size.w,LAKE_BOT_Y-LAKE_TOP_Y),0,GCornerNone);
+  graphics_fill_rect(ctx,GRect(0,L_LAKE_TOP,b.size.w,L_LAKE_BOT-L_LAKE_TOP),0,GCornerNone);
   #endif
 }
 
@@ -397,25 +405,25 @@ static void draw_lake(GContext *ctx, GRect b) {
 static void draw_ground(GContext *ctx, GRect b) {
   // Main ground
   graphics_context_set_fill_color(ctx,C_GROUND);
-  graphics_fill_rect(ctx,GRect(0,GROUND_Y,b.size.w,b.size.h-GROUND_Y),0,GCornerNone);
+  graphics_fill_rect(ctx,GRect(0,L_GROUND,b.size.w,b.size.h-L_GROUND),0,GCornerNone);
 
   #ifdef PBL_COLOR
   // Dirt path
   graphics_context_set_fill_color(ctx,C_DIRT);
-  graphics_fill_rect(ctx,GRect(100,GROUND_Y+15,60,4),0,GCornerNone);
-  graphics_fill_rect(ctx,GRect(95,GROUND_Y+19,50,3),0,GCornerNone);
+  graphics_fill_rect(ctx,GRect(100,L_GROUND+15,60,4),0,GCornerNone);
+  graphics_fill_rect(ctx,GRect(95,L_GROUND+19,50,3),0,GCornerNone);
 
   // Darker grass patches
   graphics_context_set_fill_color(ctx,C_GROUND_DK);
   int gp[][2]={{30,8},{70,14},{140,10},{200,12},{50,22},{170,20},{230,16}};
   for(int i=0;i<7;i++)
-    graphics_fill_rect(ctx,GRect(gp[i][0],GROUND_Y+gp[i][1],8,3),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(gp[i][0],L_GROUND+gp[i][1],8,3),0,GCornerNone);
 
   // Small rocks
   graphics_context_set_fill_color(ctx,GColorLightGray);
-  graphics_fill_rect(ctx,GRect(115,GROUND_Y+10,4,3),0,GCornerNone);
-  graphics_fill_rect(ctx,GRect(180,GROUND_Y+18,3,2),0,GCornerNone);
-  graphics_fill_rect(ctx,GRect(45,GROUND_Y+25,5,3),0,GCornerNone);
+  graphics_fill_rect(ctx,GRect(115,L_GROUND+10,4,3),0,GCornerNone);
+  graphics_fill_rect(ctx,GRect(180,L_GROUND+18,3,2),0,GCornerNone);
+  graphics_fill_rect(ctx,GRect(45,L_GROUND+25,5,3),0,GCornerNone);
   #endif
 }
 
@@ -443,18 +451,19 @@ static void draw_tree(GContext *ctx, int cx, int bot_y, int size) {
   }
 }
 static void draw_trees(GContext *ctx, GRect b) {
-  draw_tree(ctx,30,GROUND_Y+8,40);
-  draw_tree(ctx,88,GROUND_Y+4,32);
-  draw_tree(ctx,210,GROUND_Y+6,36);
-  draw_tree(ctx,240,GROUND_Y+10,28);
+  int w=b.size.w;
+  draw_tree(ctx,w*12/100,L_GROUND+8,L_H*15/100);
+  draw_tree(ctx,w*34/100,L_GROUND+4,L_H*12/100);
+  draw_tree(ctx,w*81/100,L_GROUND+6,L_H*14/100);
+  draw_tree(ctx,w*92/100,L_GROUND+10,L_H*11/100);
 }
 
 // ============================================================================
 // DRAW: TENT
 // ============================================================================
 static void draw_tent(GContext *ctx, GRect b) {
-  int cx=55, by=GROUND_Y+20;
-  int tw=36, th=24;
+  int cx=b.size.w*21/100, by=L_GROUND+L_H*8/100;
+  int tw=L_W*14/100, th=L_H*9/100;
 
   // Tent body (triangle)
   graphics_context_set_fill_color(ctx,C_TENT);
@@ -484,7 +493,7 @@ static void draw_tent(GContext *ctx, GRect b) {
 // DRAW: CAMPFIRE (animated at night, logs during day)
 // ============================================================================
 static void draw_campfire(GContext *ctx, GRect b) {
-  int cx=140, by=GROUND_Y+22;
+  int cx=b.size.w*54/100, by=L_GROUND+L_H*8/100;
 
   // Log base (always)
   graphics_context_set_fill_color(ctx,C_LOG);
@@ -849,6 +858,7 @@ static void load_data(void){
 static void win_load(Window *w){
   Layer *wl=window_get_root_layer(w);
   GRect b=layer_get_bounds(wl);
+  init_layout(b.size.w, b.size.h);
   s_canvas=layer_create(b);
   layer_set_update_proc(s_canvas,canvas_proc);
   layer_add_child(wl,s_canvas);
