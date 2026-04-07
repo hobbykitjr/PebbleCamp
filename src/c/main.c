@@ -289,7 +289,8 @@ static void draw_mountains(GContext *ctx, GRect b) {
   for(int y=L_MTN2_Y;y<L_LAKE_TOP;y++){
     int spread=(y-L_MTN2_Y)*2;
     int lx=L_MTN2_X-spread, rx=L_MTN2_X+spread;
-    if(lx<0)lx=0; if(rx>b.size.w)rx=b.size.w;
+    if(lx<0) lx=0;
+    if(rx>b.size.w) rx=b.size.w;
     graphics_fill_rect(ctx,GRect(lx,y,rx-lx,1),0,GCornerNone);
   }
   // Snow cap
@@ -305,7 +306,8 @@ static void draw_mountains(GContext *ctx, GRect b) {
   for(int y=L_MTN1_Y;y<L_LAKE_TOP;y++){
     int spread=(y-L_MTN1_Y)*18/10;
     int lx=L_MTN1_X-spread, rx=L_MTN1_X+spread;
-    if(lx<0)lx=0; if(rx>b.size.w)rx=b.size.w;
+    if(lx<0) lx=0;
+    if(rx>b.size.w) rx=b.size.w;
     graphics_fill_rect(ctx,GRect(lx,y,rx-lx,1),0,GCornerNone);
   }
   graphics_context_set_fill_color(ctx,C_SNOW);
@@ -320,7 +322,8 @@ static void draw_mountains(GContext *ctx, GRect b) {
   for(int y=L_MTN3_Y;y<L_LAKE_TOP;y++){
     int spread=(y-L_MTN3_Y)*15/10;
     int lx=L_MTN3_X-spread, rx=L_MTN3_X+spread;
-    if(lx<0)lx=0; if(rx>b.size.w)rx=b.size.w;
+    if(lx<0) lx=0;
+    if(rx>b.size.w) rx=b.size.w;
     graphics_fill_rect(ctx,GRect(lx,y,rx-lx,1),0,GCornerNone);
   }
 }
