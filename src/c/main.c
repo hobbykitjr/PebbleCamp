@@ -673,15 +673,6 @@ static void draw_hud(GContext *ctx, GRect b) {
       GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
   }
 
-  // Peek indicator (when peeking, show which slot)
-  if(s_peek>=0) {
-    char peek_dots[8];
-    snprintf(peek_dots,sizeof(peek_dots),"%s%s%s",
-      s_peek==0?"O":".",s_peek==1?"O":".",s_peek==2?"O":".");
-    graphics_context_set_text_color(ctx,C_INFO);
-    graphics_draw_text(ctx,peek_dots,f14,GRect(0,b.size.h-20,w,16),
-      GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
-  }
 }
 
 // ============================================================================
@@ -790,7 +781,8 @@ static void tap_cb(AccelAxisType a, int32_t d){
       else if(ph>=12 && ph<17) period="Afternoon";
       else if(ph>=17 && ph<21) period="Tonight";
       else period="Tomorrow";
-      snprintf(s_dbuf,sizeof(s_dbuf),">>> %s",period);
+      const char *arrows = (s_peek==0) ? ">" : (s_peek==1) ? ">>" : ">>>";
+      snprintf(s_dbuf,sizeof(s_dbuf),"%s %s",arrows,period);
     } else {
       upd_time();  // Restore real time
     }
@@ -830,6 +822,7 @@ static void inbox_cb(DictionaryIterator *it, void *c){
     s_show_sun=mode&1; s_show_hilo=(mode>>1)&1;
     persist_write_bool(P_SHOW_SUN,s_show_sun);
     persist_write_bool(P_SHOW_HILO,s_show_hilo);
+    APP_LOG(APP_LOG_LEVEL_INFO,"Config: sun=%d hilo=%d (mode=%d)",s_show_sun,s_show_hilo,mode);
   }
   t=dict_find(it,MESSAGE_KEY_TOWN_NAME);
   if(t) snprintf(s_d.town,sizeof(s_d.town),"%s",t->value->cstring);

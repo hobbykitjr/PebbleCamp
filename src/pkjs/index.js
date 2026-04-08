@@ -181,7 +181,6 @@ function fetchAllData() {
         'TEMP_HIGH': data.tempHigh,
         'TEMP_LOW': data.tempLow,
         'TOWN_NAME': placeName || '',
-        'DISPLAY_MODE': settings.displayMode,
         'PEEK_WX1': data.peeks[0].wx,  'PEEK_T1': data.peeks[0].temp,  'PEEK_H1': data.peeks[0].hour,
         'PEEK_WX2': data.peeks[1].wx,  'PEEK_T2': data.peeks[1].temp,  'PEEK_H2': data.peeks[1].hour,
         'PEEK_WX3': data.peeks[2].wx,  'PEEK_T3': data.peeks[2].temp,  'PEEK_H3': data.peeks[2].hour
