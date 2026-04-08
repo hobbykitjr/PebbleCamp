@@ -563,45 +563,59 @@ static void draw_campfire(GContext *ctx, GRect b) {
 // ============================================================================
 static void draw_firewood(GContext *ctx, GRect b) {
   int cx=b.size.w*78/100, by=L_GROUND+L_H*4/100;
-  int r=5;  // Log radius
-  int filled=(s_bat+19)/20;  // 0-5 logs filled
+  int r=5;
+  int filled=(s_bat+19)/20;  // 0-5 logs
 
   #ifdef PBL_COLOR
   GColor wood=GColorFromHEX(0xBB8844);
   GColor ring=GColorFromHEX(0x885522);
-  GColor empty=GColorFromHEX(0x444444);
-  GColor empty_ring=GColorFromHEX(0x333333);
   #else
   GColor wood=GColorWhite;
   GColor ring=GColorLightGray;
-  GColor empty=GColorDarkGray;
-  GColor empty_ring=GColorBlack;
   #endif
 
-  // Stacked circles viewed from the end: 3 bottom, 2 top
-  // Bottom row — spaced so circles just touch (2*r apart center to center)
-  int sp=r*2+1;  // spacing: diameter + 1px gap
+  // Only draw filled logs — empty slots are just absent
+  int sp=r*2+1;
   int bx[]={cx-sp, cx, cx+sp};
   for(int i=0;i<3;i++){
-    bool on=i<filled;
-    graphics_context_set_fill_color(ctx,on?ring:empty_ring);
+    if(i>=filled) continue;
+    graphics_context_set_fill_color(ctx,ring);
     graphics_fill_circle(ctx,GPoint(bx[i],by),r);
-    graphics_context_set_fill_color(ctx,on?wood:empty);
+    graphics_context_set_fill_color(ctx,wood);
     graphics_fill_circle(ctx,GPoint(bx[i],by),r-2);
-    graphics_context_set_fill_color(ctx,on?ring:empty_ring);
+    graphics_context_set_fill_color(ctx,ring);
     graphics_fill_circle(ctx,GPoint(bx[i],by),1);
   }
-  // Top row: 2 circles nestled between bottom row
   int tx[]={cx-sp/2, cx+sp/2};
   int top_y=by-r*2+1;
   for(int i=0;i<2;i++){
-    bool on=(i+3)<filled;
-    graphics_context_set_fill_color(ctx,on?ring:empty_ring);
+    if((i+3)>=filled) continue;
+    graphics_context_set_fill_color(ctx,ring);
     graphics_fill_circle(ctx,GPoint(tx[i],top_y),r);
-    graphics_context_set_fill_color(ctx,on?wood:empty);
+    graphics_context_set_fill_color(ctx,wood);
     graphics_fill_circle(ctx,GPoint(tx[i],top_y),r-2);
-    graphics_context_set_fill_color(ctx,on?ring:empty_ring);
+    graphics_context_set_fill_color(ctx,ring);
     graphics_fill_circle(ctx,GPoint(tx[i],top_y),1);
+  }
+
+  // Axe below logs when charging
+  if(battery_state_service_peek().is_charging) {
+    int ax=cx, ay=by+r+4;
+    // Handle (diagonal line)
+    #ifdef PBL_COLOR
+    graphics_context_set_stroke_color(ctx,GColorFromHEX(0x885522));
+    #else
+    graphics_context_set_stroke_color(ctx,GColorWhite);
+    #endif
+    graphics_context_set_stroke_width(ctx,2);
+    graphics_draw_line(ctx,GPoint(ax-8,ay+10),GPoint(ax+4,ay));
+    // Axe head
+    #ifdef PBL_COLOR
+    graphics_context_set_fill_color(ctx,GColorLightGray);
+    #else
+    graphics_context_set_fill_color(ctx,GColorWhite);
+    #endif
+    graphics_fill_rect(ctx,GRect(ax+3,ay-3,4,8),0,GCornerNone);
   }
 }
 
@@ -716,7 +730,7 @@ static void draw_hud(GContext *ctx, GRect b) {
     char hilo[16];
     snprintf(hilo,sizeof(hilo),"H:%d L:%d",s_d.hi,s_d.lo);
     graphics_context_set_text_color(ctx,C_INFO);
-    graphics_draw_text(ctx,hilo,f14,GRect(6,b.size.h-26,w,16),
+    graphics_draw_text(ctx,hilo,f14,GRect(3,b.size.h-26,w,16),
       GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
   }
 
@@ -767,7 +781,9 @@ static void anim_cb(void *data){
 }
 static void start_anim(void){
   if(s_anim && s_timer) return;
-  if(s_timer){app_timer_cancel(s_timer);s_timer=NULL;}
+  // Only cancel if we know the timer hasn't fired yet
+  if(s_anim && !s_timer) { /* timer fired, just restart */ }
+  else if(s_timer) { app_timer_cancel(s_timer); s_timer=NULL; }
   s_anim=true; s_anim_ms=0;
   s_timer=app_timer_register(ANIM_INTERVAL,anim_cb,NULL);
 }
@@ -794,7 +810,10 @@ static void tick_cb(struct tm *t, TimeUnits u){
     }
   }
 }
-static void bat_cb(BatteryChargeState s){ s_bat=s.charge_percent; }
+static void bat_cb(BatteryChargeState s){
+  s_bat=s.charge_percent;
+  if(s_canvas) layer_mark_dirty(s_canvas);
+}
 static void bt_cb(bool c){
   s_bt=c; if(!c) vibes_short_pulse();
   if(s_canvas) layer_mark_dirty(s_canvas);
@@ -834,7 +853,7 @@ static void tap_cb(AccelAxisType a, int32_t d){
       upd_time();  // Restore real time
     }
     // Reset/extend the revert timer (5 seconds of inactivity)
-    if(s_peek_timer) app_timer_cancel(s_peek_timer);
+    if(s_peek_timer) { app_timer_cancel(s_peek_timer); s_peek_timer=NULL; }
     if(s_peek>=0)
       s_peek_timer=app_timer_register(5000,peek_revert_cb,NULL);
     start_anim();
