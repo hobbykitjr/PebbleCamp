@@ -718,7 +718,7 @@ static void draw_hud(GContext *ctx, GRect b) {
     char hilo[16];
     snprintf(hilo,sizeof(hilo),"H:%d L:%d",s_d.hi,s_d.lo);
     graphics_context_set_text_color(ctx,C_INFO);
-    graphics_draw_text(ctx,hilo,f14,GRect(0,b.size.h-30,w,16),
+    graphics_draw_text(ctx,hilo,f14,GRect(0,b.size.h-26,w,16),
       GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
   }
 
