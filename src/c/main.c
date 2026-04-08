@@ -562,60 +562,49 @@ static void draw_campfire(GContext *ctx, GRect b) {
 // DRAW: FIREWOOD PILE (battery indicator)
 // ============================================================================
 static void draw_firewood(GContext *ctx, GRect b) {
-  int cx=b.size.w*78/100, by=L_GROUND+L_H*6/100;
-  // 5 logs stacked: bottom row of 3, then 2 on top — filled by battery %
-  // Each log = 20% battery
+  int cx=b.size.w*78/100, by=L_GROUND+L_H*4/100;
+  int r=5;  // Log radius
   int filled=(s_bat+19)/20;  // 0-5 logs filled
 
   #ifdef PBL_COLOR
-  GColor log_full=GColorFromHEX(0x885522);
-  GColor log_empty=GColorFromHEX(0x333333);
+  GColor wood=GColorFromHEX(0xBB8844);
+  GColor ring=GColorFromHEX(0x885522);
+  GColor empty=GColorFromHEX(0x444444);
+  GColor empty_ring=GColorFromHEX(0x333333);
   #else
-  GColor log_full=GColorWhite;
-  GColor log_empty=GColorDarkGray;
+  GColor wood=GColorWhite;
+  GColor ring=GColorLightGray;
+  GColor empty=GColorDarkGray;
+  GColor empty_ring=GColorBlack;
   #endif
 
-  // Bottom row: 3 logs side by side
-  int lw=10, lh=5, gap=2;
+  // Stacked circles viewed from the end: 3 bottom, 2 top
+  // Bottom row
+  int bx[]={cx-r-1, cx, cx+r+1};
   for(int i=0;i<3;i++){
-    int lx=cx-((lw+gap)*3)/2+(lw+gap)*i;
-    graphics_context_set_fill_color(ctx,(i<filled)?log_full:log_empty);
-    graphics_fill_rect(ctx,GRect(lx,by,lw,lh),0,GCornerNone);
-    // Bark rings
-    graphics_context_set_fill_color(ctx,GColorBlack);
-    graphics_fill_rect(ctx,GRect(lx+3,by+1,1,lh-2),0,GCornerNone);
-    graphics_fill_rect(ctx,GRect(lx+7,by+1,1,lh-2),0,GCornerNone);
+    bool on=i<filled;
+    // Outer circle (bark)
+    graphics_context_set_fill_color(ctx,on?ring:empty_ring);
+    graphics_fill_circle(ctx,GPoint(bx[i],by),r);
+    // Inner circle (wood)
+    graphics_context_set_fill_color(ctx,on?wood:empty);
+    graphics_fill_circle(ctx,GPoint(bx[i],by),r-2);
+    // Center dot (rings)
+    graphics_context_set_fill_color(ctx,on?ring:empty_ring);
+    graphics_fill_circle(ctx,GPoint(bx[i],by),1);
   }
-  // Top row: 2 logs centered above
+  // Top row: 2 circles sitting in the gaps
+  int tx[]={cx-(r/2+1), cx+(r/2+1)};
+  int top_y=by-r-r/2;
   for(int i=0;i<2;i++){
-    int lx=cx-((lw+gap)*2)/2+(lw+gap)*i+1;
-    graphics_context_set_fill_color(ctx,(i+3<filled)?log_full:log_empty);
-    graphics_fill_rect(ctx,GRect(lx,by-lh-1,lw,lh),0,GCornerNone);
-    graphics_context_set_fill_color(ctx,GColorBlack);
-    graphics_fill_rect(ctx,GRect(lx+3,by-lh,1,lh-2),0,GCornerNone);
-    graphics_fill_rect(ctx,GRect(lx+7,by-lh,1,lh-2),0,GCornerNone);
+    bool on=(i+3)<filled;
+    graphics_context_set_fill_color(ctx,on?ring:empty_ring);
+    graphics_fill_circle(ctx,GPoint(tx[i],top_y),r);
+    graphics_context_set_fill_color(ctx,on?wood:empty);
+    graphics_fill_circle(ctx,GPoint(tx[i],top_y),r-2);
+    graphics_context_set_fill_color(ctx,on?ring:empty_ring);
+    graphics_fill_circle(ctx,GPoint(tx[i],top_y),1);
   }
-
-  // Log ends (circles) on the face of each bottom log
-  #ifdef PBL_COLOR
-  for(int i=0;i<3;i++){
-    int lx=cx-((lw+gap)*3)/2+(lw+gap)*i;
-    GColor ec=(i<filled)?GColorFromHEX(0xBB8844):GColorDarkGray;
-    graphics_context_set_fill_color(ctx,ec);
-    graphics_fill_circle(ctx,GPoint(lx+lw,by+lh/2),lh/2);
-    // Ring
-    graphics_context_set_stroke_color(ctx,GColorBlack);
-    graphics_draw_circle(ctx,GPoint(lx+lw,by+lh/2),lh/2);
-  }
-  for(int i=0;i<2;i++){
-    int lx=cx-((lw+gap)*2)/2+(lw+gap)*i+1;
-    GColor ec=(i+3<filled)?GColorFromHEX(0xBB8844):GColorDarkGray;
-    graphics_context_set_fill_color(ctx,ec);
-    graphics_fill_circle(ctx,GPoint(lx+lw,by-lh/2-1),lh/2);
-    graphics_context_set_stroke_color(ctx,GColorBlack);
-    graphics_draw_circle(ctx,GPoint(lx+lw,by-lh/2-1),lh/2);
-  }
-  #endif
 }
 
 // ============================================================================
@@ -715,13 +704,13 @@ static void draw_hud(GContext *ctx, GRect b) {
   // Date (smaller font)
   txt(ctx,s_dbuf,f14,GRect(0,ty+44,w,18),GTextAlignmentCenter);
 
-  // Sunrise/sunset times (pushed down below time/date)
+  // Sunrise/sunset times (same line as date)
   if(s_show_sun) {
     snprintf(s_sr,sizeof(s_sr),"%d:%02d",fmt_h(s_d.sr_h),s_d.sr_m);
     snprintf(s_ss,sizeof(s_ss),"%d:%02d",fmt_h(s_d.ss_h),s_d.ss_m);
-    int sun_y=ty+60;
-    txt(ctx,s_sr,f14,GRect(8,sun_y,50,18),GTextAlignmentLeft);
-    txt(ctx,s_ss,f14,GRect(w-58,sun_y,50,18),GTextAlignmentRight);
+    int sun_y=ty+44;
+    txt(ctx,s_sr,f14,GRect(14,sun_y,50,18),GTextAlignmentLeft);
+    txt(ctx,s_ss,f14,GRect(w-64,sun_y,50,18),GTextAlignmentRight);
   }
 
   // Hi/Lo temps
