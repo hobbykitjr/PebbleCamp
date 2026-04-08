@@ -695,6 +695,10 @@ static void draw_hud(GContext *ctx, GRect b) {
   GFont f18=fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
   GFont f14=fonts_get_system_font(FONT_KEY_GOTHIC_14);
   GFont f24=fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+  // Bigger fonts for gabbro (260px)
+  bool big=L_W>=240;
+  GFont f_date=big?f18:f14;
+  GFont f_info=big?f18:f14;
   int w=b.size.w;
 
   // Temp + weather (top) — use peek data when peeking
@@ -713,16 +717,17 @@ static void draw_hud(GContext *ctx, GRect b) {
   int ty=58;
   txt(ctx,s_tbuf,f42,GRect(0,ty,w,50),GTextAlignmentCenter);
 
-  // Date (smaller font)
-  txt(ctx,s_dbuf,f14,GRect(0,ty+44,w,18),GTextAlignmentCenter);
+  // Date
+  txt(ctx,s_dbuf,f_date,GRect(0,ty+44,w,22),GTextAlignmentCenter);
 
   // Sunrise/sunset times (same line as date)
   if(s_show_sun) {
     snprintf(s_sr,sizeof(s_sr),"%d:%02d",fmt_h(s_d.sr_h),s_d.sr_m);
     snprintf(s_ss,sizeof(s_ss),"%d:%02d",fmt_h(s_d.ss_h),s_d.ss_m);
     int sun_y=ty+44;
-    txt(ctx,s_sr,f14,GRect(14,sun_y,50,18),GTextAlignmentLeft);
-    txt(ctx,s_ss,f14,GRect(w-64,sun_y,50,18),GTextAlignmentRight);
+    int sx=big?20:14;
+    txt(ctx,s_sr,f_info,GRect(sx,sun_y,60,22),GTextAlignmentLeft);
+    txt(ctx,s_ss,f_info,GRect(w-sx-60,sun_y,60,22),GTextAlignmentRight);
   }
 
   // Hi/Lo temps
@@ -730,7 +735,7 @@ static void draw_hud(GContext *ctx, GRect b) {
     char hilo[16];
     snprintf(hilo,sizeof(hilo),"H:%d L:%d",s_d.hi,s_d.lo);
     graphics_context_set_text_color(ctx,C_INFO);
-    graphics_draw_text(ctx,hilo,f14,GRect(3,b.size.h-26,w,16),
+    graphics_draw_text(ctx,hilo,f_info,GRect(3,b.size.h-(big?30:26),w,22),
       GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
   }
 
