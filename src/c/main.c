@@ -19,11 +19,6 @@
 // Use pct_h(pct) and pct_w(pct) macros with current bounds
 #define BODY_RADIUS  10
 
-// Detail levels
-#define DETAIL_LOW   0
-#define DETAIL_MED   1
-#define DETAIL_HIGH  2
-
 // Persist keys
 #define P_SUNRISE_H  0
 #define P_SUNRISE_M  1
@@ -34,8 +29,9 @@
 #define P_TEMP_HI    6
 #define P_TEMP_LO    7
 #define P_VALID      8
-#define P_DETAIL     9
-#define P_DEV_MODE   10
+#define P_SHOW_SUN   9
+#define P_SHOW_HILO  10
+#define P_DEV_MODE   11
 
 // Weather
 #define WX_CLEAR   0
@@ -130,8 +126,9 @@ static Data s_d={.sr_h=6,.sr_m=0,.ss_h=20,.ss_m=0,.temp=55,.wx=WX_CLEAR,
   .hi=65,.lo=40,.town="Locust Lake, PA",.valid=false};
 
 static char s_tbuf[8],s_dbuf[16],s_sr[8],s_ss[8],s_tmp[8];
-static int s_det=DETAIL_MED, s_hr=12, s_mn=0;
+static int s_hr=12, s_mn=0;
 static bool s_dev=false;
+static bool s_show_sun=true, s_show_hilo=true;
 static int s_fire_frame=0;  // Animation frame counter
 static int s_peek=-1;       // Peek state: -1=normal, 0/1/2=peek slot
 static AppTimer *s_peek_timer=NULL;
@@ -144,16 +141,15 @@ static int L_ARC_TOP, L_ARC_BOT;
 
 static void init_layout(int w, int h) {
   L_W=w; L_H=h;
-  // Mountains shifted down — peaks below weather/time area
-  L_MTN1_X=w*27/100;  L_MTN1_Y=h*32/100;
-  L_MTN2_X=w*62/100;  L_MTN2_Y=h*28/100;
-  L_MTN3_X=w*81/100;  L_MTN3_Y=h*35/100;
-  L_LAKE_TOP=h*56/100;
-  L_LAKE_BOT=h*68/100;
-  L_GROUND=h*68/100;
-  // Sun arc sits behind mountains near horizon
-  L_ARC_TOP=h*8/100;
-  L_ARC_BOT=h*45/100;
+  // Mountains pushed well below weather/time area
+  L_MTN1_X=w*27/100;  L_MTN1_Y=h*38/100;
+  L_MTN2_X=w*62/100;  L_MTN2_Y=h*34/100;
+  L_MTN3_X=w*81/100;  L_MTN3_Y=h*40/100;
+  L_LAKE_TOP=h*62/100;
+  L_LAKE_BOT=h*72/100;
+  L_GROUND=h*72/100;
+  L_ARC_TOP=h*10/100;
+  L_ARC_BOT=h*50/100;
 }
 
 // DEV presets
@@ -531,10 +527,6 @@ static void draw_campfire(GContext *ctx, GRect b) {
 
   // Night: animated fire!
   #ifdef PBL_COLOR
-  // Orange glow behind fire
-  graphics_context_set_fill_color(ctx,GColorFromHEX(0xAA4400));
-  graphics_fill_circle(ctx,GPoint(cx,by-8),12);
-
   // Flame tongues (randomized per frame)
   int seed=s_fire_frame*7+13;
   for(int i=0;i<5;i++){
@@ -660,11 +652,11 @@ static void draw_hud(GContext *ctx, GRect b) {
   int ty=58;
   txt(ctx,s_tbuf,f42,GRect(0,ty,w,50),GTextAlignmentCenter);
 
-  // Date
-  txt(ctx,s_dbuf,f18,GRect(0,ty+42,w,22),GTextAlignmentCenter);
+  // Date (smaller font)
+  txt(ctx,s_dbuf,f14,GRect(0,ty+44,w,18),GTextAlignmentCenter);
 
-  // Sunrise/sunset (MED+)
-  if(s_det>=DETAIL_MED) {
+  // Sunrise/sunset times
+  if(s_show_sun) {
     snprintf(s_sr,sizeof(s_sr),"%d:%02d",fmt_h(s_d.sr_h),s_d.sr_m);
     snprintf(s_ss,sizeof(s_ss),"%d:%02d",fmt_h(s_d.ss_h),s_d.ss_m);
     int mid_y=b.size.h/2-5;
@@ -672,19 +664,12 @@ static void draw_hud(GContext *ctx, GRect b) {
     txt(ctx,s_ss,f14,GRect(w-58,mid_y,50,18),GTextAlignmentRight);
   }
 
-  // Hi/Lo temps (MED+)
-  if(s_det>=DETAIL_MED && s_d.valid) {
+  // Hi/Lo temps
+  if(s_show_hilo && s_d.valid) {
     char hilo[16];
     snprintf(hilo,sizeof(hilo),"H:%d L:%d",s_d.hi,s_d.lo);
     graphics_context_set_text_color(ctx,C_INFO);
     graphics_draw_text(ctx,hilo,f14,GRect(0,b.size.h-26,w,16),
-      GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
-  }
-
-  // Town name (HIGH)
-  if(s_det==DETAIL_HIGH && s_d.town[0]) {
-    graphics_context_set_text_color(ctx,C_INFO);
-    graphics_draw_text(ctx,s_d.town,f14,GRect(0,b.size.h-40,w,16),
       GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
   }
 
@@ -803,9 +788,9 @@ static void tap_cb(AccelAxisType a, int32_t d){
       const char *period;
       if(ph>=5 && ph<12) period="Morning";
       else if(ph>=12 && ph<17) period="Afternoon";
-      else if(ph>=17 && ph<21) period="Evening";
-      else period="Night";
-      snprintf(s_dbuf,sizeof(s_dbuf),"Upcoming: %s",period);
+      else if(ph>=17 && ph<21) period="Tonight";
+      else period="Tomorrow";
+      snprintf(s_dbuf,sizeof(s_dbuf),">>> %s",period);
     } else {
       upd_time();  // Restore real time
     }
@@ -838,7 +823,14 @@ static void inbox_cb(DictionaryIterator *it, void *c){
   t=dict_find(it,MESSAGE_KEY_WEATHER_CODE);  if(t) s_d.wx=(int)t->value->int32;
   t=dict_find(it,MESSAGE_KEY_TEMP_HIGH);     if(t) s_d.hi=(int)t->value->int32;
   t=dict_find(it,MESSAGE_KEY_TEMP_LOW);      if(t) s_d.lo=(int)t->value->int32;
-  t=dict_find(it,MESSAGE_KEY_DISPLAY_MODE);  if(t) s_det=(int)t->value->int32;
+  t=dict_find(it,MESSAGE_KEY_DISPLAY_MODE);
+  if(t) {
+    int mode=(int)t->value->int32;
+    // Mode encodes two bits: bit0=show_sun, bit1=show_hilo
+    s_show_sun=mode&1; s_show_hilo=(mode>>1)&1;
+    persist_write_bool(P_SHOW_SUN,s_show_sun);
+    persist_write_bool(P_SHOW_HILO,s_show_hilo);
+  }
   t=dict_find(it,MESSAGE_KEY_TOWN_NAME);
   if(t) snprintf(s_d.town,sizeof(s_d.town),"%s",t->value->cstring);
 
@@ -865,7 +857,6 @@ static void inbox_cb(DictionaryIterator *it, void *c){
   persist_write_int(P_WX,s_d.wx);
   persist_write_int(P_TEMP_HI,s_d.hi);
   persist_write_int(P_TEMP_LO,s_d.lo);
-  persist_write_int(P_DETAIL,s_det);
   persist_write_bool(P_VALID,true);
 }
 static void drop_cb(AppMessageResult r,void *c){}
@@ -887,7 +878,8 @@ static void load_data(void){
     s_d.lo=persist_read_int(P_TEMP_LO);
     s_d.valid=true;
   }
-  if(persist_exists(P_DETAIL)) s_det=persist_read_int(P_DETAIL);
+  if(persist_exists(P_SHOW_SUN)) s_show_sun=persist_read_bool(P_SHOW_SUN);
+  if(persist_exists(P_SHOW_HILO)) s_show_hilo=persist_read_bool(P_SHOW_HILO);
   if(persist_exists(P_DEV_MODE)) s_dev=persist_read_bool(P_DEV_MODE);
 }
 

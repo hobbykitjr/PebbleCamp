@@ -9,7 +9,9 @@
 
 var settings = {
   zipCode: '17948',   // Near Locust Lake State Park, PA
-  displayMode: 1,
+  displayMode: 3,     // bit0=sun, bit1=hilo (3 = both on)
+  showSun: 1,
+  showHiLo: 1,
   devMode: 0
 };
 
@@ -201,6 +203,8 @@ function loadSettings() {
       var p = JSON.parse(s);
       if (p.zipCode) settings.zipCode = p.zipCode;
       if (p.displayMode !== undefined) settings.displayMode = p.displayMode;
+      if (p.showSun !== undefined) settings.showSun = p.showSun;
+      if (p.showHiLo !== undefined) settings.showHiLo = p.showHiLo;
       if (p.devMode !== undefined) settings.devMode = p.devMode;
     }
   } catch (e) {}
@@ -212,7 +216,8 @@ function saveSettings() {
 Pebble.addEventListener('showConfiguration', function () {
   var url = 'https://hobbykitjr.github.io/PebbleCamp/config/index.html' +
     '?zip=' + encodeURIComponent(settings.zipCode) +
-    '&mode=' + settings.displayMode +
+    '&sun=' + (settings.showSun || 1) +
+    '&hilo=' + (settings.showHiLo || 1) +
     '&dev=' + settings.devMode;
   console.log('Opening config: ' + url);
   Pebble.openURL(url);
@@ -226,6 +231,8 @@ Pebble.addEventListener('webviewclosed', function (e) {
       var config = JSON.parse(decodeURIComponent(rawResponse));
       if (config.zipCode) settings.zipCode = config.zipCode;
       if (config.displayMode !== undefined) settings.displayMode = parseInt(config.displayMode);
+      if (config.showSun !== undefined) settings.showSun = parseInt(config.showSun);
+      if (config.showHiLo !== undefined) settings.showHiLo = parseInt(config.showHiLo);
       if (config.devMode !== undefined) settings.devMode = parseInt(config.devMode);
       saveSettings();
       console.log('Settings updated: zip=' + settings.zipCode + ' mode=' + settings.displayMode);

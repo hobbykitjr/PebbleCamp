@@ -67,16 +67,23 @@
   </div>
 
   <div class="card">
-    <h2>Detail Level</h2>
+    <h2>Sunrise / Sunset Times</h2>
     <div class="toggle-group">
-      <input type="radio" name="displayMode" id="modeLow" value="0">
-      <label for="modeLow">Low</label>
-      <input type="radio" name="displayMode" id="modeMed" value="1">
-      <label for="modeMed">Med</label>
-      <input type="radio" name="displayMode" id="modeHigh" value="2">
-      <label for="modeHigh">High</label>
+      <input type="radio" name="showSun" id="sunOn" value="1">
+      <label for="sunOn">Show</label>
+      <input type="radio" name="showSun" id="sunOff" value="0">
+      <label for="sunOff">Hide</label>
     </div>
-    <p class="hint">Low: time + weather. Med: + sun times, hi/lo. High: + forecast, town.</p>
+  </div>
+
+  <div class="card">
+    <h2>High / Low Temps</h2>
+    <div class="toggle-group">
+      <input type="radio" name="showHiLo" id="hiloOn" value="1">
+      <label for="hiloOn">Show</label>
+      <input type="radio" name="showHiLo" id="hiloOff" value="0">
+      <label for="hiloOff">Hide</label>
+    </div>
   </div>
 
   <div class="card">
@@ -102,10 +109,10 @@
     var zipField = document.getElementById('zipCode');
     zipField.value = getParam('zip') || '';
 
-    var currentMode = getParam('mode') || '1';
-    if (currentMode === '2') document.getElementById('modeHigh').checked = true;
-    else if (currentMode === '1') document.getElementById('modeMed').checked = true;
-    else document.getElementById('modeLow').checked = true;
+    var showSun = getParam('sun') || '1';
+    document.getElementById(showSun === '1' ? 'sunOn' : 'sunOff').checked = true;
+    var showHiLo = getParam('hilo') || '1';
+    document.getElementById(showHiLo === '1' ? 'hiloOn' : 'hiloOff').checked = true;
 
     var currentDev = getParam('dev') || '0';
     if (currentDev === '1') document.getElementById('devOn').checked = true;
@@ -127,11 +134,17 @@
     }
 
     document.getElementById('saveBtn').addEventListener('click', function () {
-      var selectedMode = document.querySelector('input[name="displayMode"]:checked');
+      var selSun = document.querySelector('input[name="showSun"]:checked');
+      var selHiLo = document.querySelector('input[name="showHiLo"]:checked');
       var selectedDev = document.querySelector('input[name="devMode"]:checked');
+      // Pack sun+hilo into displayMode: bit0=sun, bit1=hilo
+      var sun = selSun ? parseInt(selSun.value) : 1;
+      var hilo = selHiLo ? parseInt(selHiLo.value) : 1;
       var result = {
         zipCode: zipField.value.trim() || '17948',
-        displayMode: selectedMode ? selectedMode.value : '1',
+        displayMode: sun | (hilo << 1),
+        showSun: sun,
+        showHiLo: hilo,
         devMode: selectedDev ? selectedDev.value : '0'
       };
       returnResult(JSON.stringify(result));
