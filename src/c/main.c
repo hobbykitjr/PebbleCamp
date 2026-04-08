@@ -498,7 +498,7 @@ static void draw_tent(GContext *ctx, GRect b) {
 // DRAW: CAMPFIRE (animated at night, logs during day)
 // ============================================================================
 static void draw_campfire(GContext *ctx, GRect b) {
-  int cx=b.size.w*54/100, by=L_GROUND+L_H*8/100;
+  int cx=b.size.w*46/100, by=L_GROUND+L_H*8/100;
 
   // Log base (always)
   graphics_context_set_fill_color(ctx,C_LOG);
@@ -554,6 +554,66 @@ static void draw_campfire(GContext *ctx, GRect b) {
   for(int i=0;i<3;i++){
     int fx=cx-3+i*3, fh=6+i*2;
     graphics_fill_rect(ctx,GRect(fx,by-fh,3,fh),0,GCornerNone);
+  }
+  #endif
+}
+
+// ============================================================================
+// DRAW: FIREWOOD PILE (battery indicator)
+// ============================================================================
+static void draw_firewood(GContext *ctx, GRect b) {
+  int cx=b.size.w*78/100, by=L_GROUND+L_H*6/100;
+  // 5 logs stacked: bottom row of 3, then 2 on top — filled by battery %
+  // Each log = 20% battery
+  int filled=(s_bat+19)/20;  // 0-5 logs filled
+
+  #ifdef PBL_COLOR
+  GColor log_full=GColorFromHEX(0x885522);
+  GColor log_empty=GColorFromHEX(0x333333);
+  #else
+  GColor log_full=GColorWhite;
+  GColor log_empty=GColorDarkGray;
+  #endif
+
+  // Bottom row: 3 logs side by side
+  int lw=10, lh=5, gap=2;
+  for(int i=0;i<3;i++){
+    int lx=cx-((lw+gap)*3)/2+(lw+gap)*i;
+    graphics_context_set_fill_color(ctx,(i<filled)?log_full:log_empty);
+    graphics_fill_rect(ctx,GRect(lx,by,lw,lh),0,GCornerNone);
+    // Bark rings
+    graphics_context_set_fill_color(ctx,GColorBlack);
+    graphics_fill_rect(ctx,GRect(lx+3,by+1,1,lh-2),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(lx+7,by+1,1,lh-2),0,GCornerNone);
+  }
+  // Top row: 2 logs centered above
+  for(int i=0;i<2;i++){
+    int lx=cx-((lw+gap)*2)/2+(lw+gap)*i+1;
+    graphics_context_set_fill_color(ctx,(i+3<filled)?log_full:log_empty);
+    graphics_fill_rect(ctx,GRect(lx,by-lh-1,lw,lh),0,GCornerNone);
+    graphics_context_set_fill_color(ctx,GColorBlack);
+    graphics_fill_rect(ctx,GRect(lx+3,by-lh,1,lh-2),0,GCornerNone);
+    graphics_fill_rect(ctx,GRect(lx+7,by-lh,1,lh-2),0,GCornerNone);
+  }
+
+  // Log ends (circles) on the face of each bottom log
+  #ifdef PBL_COLOR
+  for(int i=0;i<3;i++){
+    int lx=cx-((lw+gap)*3)/2+(lw+gap)*i;
+    GColor ec=(i<filled)?GColorFromHEX(0xBB8844):GColorDarkGray;
+    graphics_context_set_fill_color(ctx,ec);
+    graphics_fill_circle(ctx,GPoint(lx+lw,by+lh/2),lh/2);
+    // Ring
+    graphics_context_set_stroke_color(ctx,GColorBlack);
+    graphics_draw_circle(ctx,GPoint(lx+lw,by+lh/2),lh/2);
+  }
+  for(int i=0;i<2;i++){
+    int lx=cx-((lw+gap)*2)/2+(lw+gap)*i+1;
+    GColor ec=(i+3<filled)?GColorFromHEX(0xBB8844):GColorDarkGray;
+    graphics_context_set_fill_color(ctx,ec);
+    graphics_fill_circle(ctx,GPoint(lx+lw,by-lh/2-1),lh/2);
+    graphics_context_set_stroke_color(ctx,GColorBlack);
+    graphics_draw_circle(ctx,GPoint(lx+lw,by-lh/2-1),lh/2);
   }
   #endif
 }
@@ -669,7 +729,7 @@ static void draw_hud(GContext *ctx, GRect b) {
     char hilo[16];
     snprintf(hilo,sizeof(hilo),"H:%d L:%d",s_d.hi,s_d.lo);
     graphics_context_set_text_color(ctx,C_INFO);
-    graphics_draw_text(ctx,hilo,f14,GRect(0,b.size.h-26,w,16),
+    graphics_draw_text(ctx,hilo,f14,GRect(0,b.size.h-30,w,16),
       GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
   }
 
@@ -685,7 +745,7 @@ static void canvas_proc(Layer *l, GContext *ctx) {
   draw_mountains(ctx,b);  // Mountains drawn OVER sun/moon near horizon
   draw_lake(ctx,b);
   draw_ground(ctx,b);
-  draw_trees(ctx,b); draw_tent(ctx,b); draw_campfire(ctx,b);
+  draw_trees(ctx,b); draw_tent(ctx,b); draw_campfire(ctx,b); draw_firewood(ctx,b);
   draw_hud(ctx,b);
 }
 
