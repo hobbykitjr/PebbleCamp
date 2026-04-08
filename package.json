@@ -25,12 +25,15 @@
       "DISPLAY_MODE": 9,
       "DEV_MODE": 10,
       "REQUEST_DATA": 11,
-      "FC_WX1": 12,
-      "FC_WX2": 13,
-      "FC_WX3": 14,
-      "FC_H1": 15,
-      "FC_H2": 16,
-      "FC_H3": 17
+      "PEEK_WX1": 12,
+      "PEEK_T1": 13,
+      "PEEK_H1": 14,
+      "PEEK_WX2": 15,
+      "PEEK_T2": 16,
+      "PEEK_H2": 17,
+      "PEEK_WX3": 18,
+      "PEEK_T3": 19,
+      "PEEK_H3": 20
     },
     "watchapp": {
       "watchface": true

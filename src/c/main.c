@@ -110,7 +110,7 @@
 typedef struct {
   int sr_h,sr_m, ss_h,ss_m;
   int temp,wx, hi,lo;
-  int fc_wx[3], fc_h[3];
+  int pk_wx[3], pk_t[3], pk_h[3];  // 3 peek slots: wx code, temp, hour
   char town[24];
   bool valid;
 } Data;
@@ -133,6 +133,8 @@ static char s_tbuf[8],s_dbuf[16],s_sr[8],s_ss[8],s_tmp[8];
 static int s_det=DETAIL_MED, s_hr=12, s_mn=0;
 static bool s_dev=false;
 static int s_fire_frame=0;  // Animation frame counter
+static int s_peek=-1;       // Peek state: -1=normal, 0/1/2=peek slot
+static AppTimer *s_peek_timer=NULL;
 
 // Layout values (set once in win_load based on screen size)
 static int L_W, L_H;        // Screen width/height
@@ -142,14 +144,16 @@ static int L_ARC_TOP, L_ARC_BOT;
 
 static void init_layout(int w, int h) {
   L_W=w; L_H=h;
-  L_MTN1_X=w*27/100;  L_MTN1_Y=h*21/100;
-  L_MTN2_X=w*62/100;  L_MTN2_Y=h*17/100;
-  L_MTN3_X=w*81/100;  L_MTN3_Y=h*25/100;
-  L_LAKE_TOP=h*46/100;
-  L_LAKE_BOT=h*60/100;
-  L_GROUND=h*60/100;
-  L_ARC_TOP=h*4/100;
-  L_ARC_BOT=h*37/100;
+  // Mountains shifted down — peaks below weather/time area
+  L_MTN1_X=w*27/100;  L_MTN1_Y=h*32/100;
+  L_MTN2_X=w*62/100;  L_MTN2_Y=h*28/100;
+  L_MTN3_X=w*81/100;  L_MTN3_Y=h*35/100;
+  L_LAKE_TOP=h*56/100;
+  L_LAKE_BOT=h*68/100;
+  L_GROUND=h*68/100;
+  // Sun arc sits behind mountains near horizon
+  L_ARC_TOP=h*8/100;
+  L_ARC_BOT=h*45/100;
 }
 
 // DEV presets
@@ -293,9 +297,10 @@ static void draw_mountains(GContext *ctx, GRect b) {
     if(rx>b.size.w) rx=b.size.w;
     graphics_fill_rect(ctx,GRect(lx,y,rx-lx,1),0,GCornerNone);
   }
-  // Snow cap
+  // Snow cap (small)
   graphics_context_set_fill_color(ctx,C_SNOW);
-  for(int y=L_MTN2_Y;y<L_MTN2_Y+12;y++){
+  int sc2=L_H*3/100;
+  for(int y=L_MTN2_Y;y<L_MTN2_Y+sc2;y++){
     int spread=(y-L_MTN2_Y)*2;
     int lx=L_MTN2_X-spread+2, rx=L_MTN2_X+spread-2;
     if(lx<rx) graphics_fill_rect(ctx,GRect(lx,y,rx-lx,1),0,GCornerNone);
@@ -311,7 +316,8 @@ static void draw_mountains(GContext *ctx, GRect b) {
     graphics_fill_rect(ctx,GRect(lx,y,rx-lx,1),0,GCornerNone);
   }
   graphics_context_set_fill_color(ctx,C_SNOW);
-  for(int y=L_MTN1_Y;y<L_MTN1_Y+10;y++){
+  int sc1=L_H*3/100;
+  for(int y=L_MTN1_Y;y<L_MTN1_Y+sc1;y++){
     int spread=(y-L_MTN1_Y)*18/10;
     int lx=L_MTN1_X-spread+2, rx=L_MTN1_X+spread-2;
     if(lx<rx) graphics_fill_rect(ctx,GRect(lx,y,rx-lx,1),0,GCornerNone);
@@ -638,12 +644,14 @@ static void draw_hud(GContext *ctx, GRect b) {
   GFont f24=fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   int w=b.size.w;
 
-  // Temp + weather (top)
-  snprintf(s_tmp,sizeof(s_tmp),"%d°",s_d.temp);
+  // Temp + weather (top) — use peek data when peeking
+  int show_temp = (s_peek>=0) ? s_d.pk_t[s_peek] : s_d.temp;
+  int show_wx   = (s_peek>=0) ? s_d.pk_wx[s_peek] : s_d.wx;
+  snprintf(s_tmp,sizeof(s_tmp),"%d°",show_temp);
   int temp_y=26;
-  if(s_d.wx!=WX_CLEAR){
+  if(show_wx!=WX_CLEAR){
     txt(ctx,s_tmp,f24,GRect(w/2-48,temp_y,48,28),GTextAlignmentRight);
-    draw_wx(ctx,w/2+16,temp_y+18,s_d.wx);
+    draw_wx(ctx,w/2+16,temp_y+18,show_wx);
   } else {
     txt(ctx,s_tmp,f24,GRect(0,temp_y,w,28),GTextAlignmentCenter);
   }
@@ -680,20 +688,14 @@ static void draw_hud(GContext *ctx, GRect b) {
       GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
   }
 
-  // 3-hour forecast mini icons (HIGH)
-  if(s_det==DETAIL_HIGH && s_d.fc_h[0]>0) {
-    int fy=b.size.h-58;
-    int spacing=50;
-    int sx=w/2-spacing;
-    for(int i=0;i<3;i++){
-      if(s_d.fc_wx[i]!=WX_CLEAR)
-        draw_wx(ctx,sx+i*spacing,fy+6,s_d.fc_wx[i]);
-      char hbuf[4];
-      snprintf(hbuf,sizeof(hbuf),"%d",fmt_h(s_d.fc_h[i]));
-      graphics_context_set_text_color(ctx,C_INFO);
-      graphics_draw_text(ctx,hbuf,f14,GRect(sx+i*spacing-12,fy+12,24,14),
-        GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
-    }
+  // Peek indicator (when peeking, show which slot)
+  if(s_peek>=0) {
+    char peek_dots[8];
+    snprintf(peek_dots,sizeof(peek_dots),"%s%s%s",
+      s_peek==0?"O":".",s_peek==1?"O":".",s_peek==2?"O":".");
+    graphics_context_set_text_color(ctx,C_INFO);
+    graphics_draw_text(ctx,peek_dots,f14,GRect(0,b.size.h-20,w,16),
+      GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
   }
 }
 
@@ -703,8 +705,8 @@ static void draw_hud(GContext *ctx, GRect b) {
 static void canvas_proc(Layer *l, GContext *ctx) {
   GRect b=layer_get_bounds(l);
   draw_sky(ctx,b); draw_stars(ctx,b);
-  draw_mountains(ctx,b);
   draw_sun(ctx,b); draw_moon(ctx,b);
+  draw_mountains(ctx,b);  // Mountains drawn OVER sun/moon near horizon
   draw_lake(ctx,b);
   draw_ground(ctx,b);
   draw_trees(ctx,b); draw_tent(ctx,b); draw_campfire(ctx,b);
@@ -774,6 +776,11 @@ static void bt_cb(bool c){
   s_bt=c; if(!c) vibes_short_pulse();
   if(s_canvas) layer_mark_dirty(s_canvas);
 }
+static void peek_revert_cb(void *data){
+  s_peek_timer=NULL; s_peek=-1;
+  upd_time();  // Restore real time
+  if(s_canvas) layer_mark_dirty(s_canvas);
+}
 static void tap_cb(AccelAxisType a, int32_t d){
   if(s_dev||!s_d.valid){
     s_pre++; if(s_pre>=NUM_PRESETS) s_pre=0;
@@ -781,7 +788,33 @@ static void tap_cb(AccelAxisType a, int32_t d){
     APP_LOG(APP_LOG_LEVEL_INFO,"DEV %d",s_pre);
     start_anim();
   } else {
+    // Cycle peek: -1 → 0 → 1 → 2 → -1
+    s_peek++;
+    if(s_peek>2) s_peek=-1;
+    if(s_peek>=0) {
+      // Override time/weather with peek slot
+      s_hr=s_d.pk_h[s_peek]; s_mn=0;
+      // Format peeked time
+      if(clock_is_24h_style()) snprintf(s_tbuf,sizeof(s_tbuf),"%d:00",s_hr);
+      else { int h=s_hr%12; if(!h)h=12; snprintf(s_tbuf,sizeof(s_tbuf),"%d:00",h); }
+      // Show peek label as date line
+      bool is_tmrw=(s_d.pk_h[s_peek]!=s_hr); // Approximate
+      int ph=s_d.pk_h[s_peek];
+      const char *period;
+      if(ph>=5 && ph<12) period="Morning";
+      else if(ph>=12 && ph<17) period="Afternoon";
+      else if(ph>=17 && ph<21) period="Evening";
+      else period="Night";
+      snprintf(s_dbuf,sizeof(s_dbuf),"Upcoming: %s",period);
+    } else {
+      upd_time();  // Restore real time
+    }
+    // Reset/extend the revert timer (5 seconds of inactivity)
+    if(s_peek_timer) app_timer_cancel(s_peek_timer);
+    if(s_peek>=0)
+      s_peek_timer=app_timer_register(5000,peek_revert_cb,NULL);
     start_anim();
+    if(s_canvas) layer_mark_dirty(s_canvas);
   }
 }
 
@@ -809,13 +842,16 @@ static void inbox_cb(DictionaryIterator *it, void *c){
   t=dict_find(it,MESSAGE_KEY_TOWN_NAME);
   if(t) snprintf(s_d.town,sizeof(s_d.town),"%s",t->value->cstring);
 
-  // 3-hour forecast
-  t=dict_find(it,MESSAGE_KEY_FC_WX1); if(t) s_d.fc_wx[0]=(int)t->value->int32;
-  t=dict_find(it,MESSAGE_KEY_FC_WX2); if(t) s_d.fc_wx[1]=(int)t->value->int32;
-  t=dict_find(it,MESSAGE_KEY_FC_WX3); if(t) s_d.fc_wx[2]=(int)t->value->int32;
-  t=dict_find(it,MESSAGE_KEY_FC_H1);  if(t) s_d.fc_h[0]=(int)t->value->int32;
-  t=dict_find(it,MESSAGE_KEY_FC_H2);  if(t) s_d.fc_h[1]=(int)t->value->int32;
-  t=dict_find(it,MESSAGE_KEY_FC_H3);  if(t) s_d.fc_h[2]=(int)t->value->int32;
+  // Peek forecast slots
+  t=dict_find(it,MESSAGE_KEY_PEEK_WX1); if(t) s_d.pk_wx[0]=(int)t->value->int32;
+  t=dict_find(it,MESSAGE_KEY_PEEK_T1);  if(t) s_d.pk_t[0]=(int)t->value->int32;
+  t=dict_find(it,MESSAGE_KEY_PEEK_H1);  if(t) s_d.pk_h[0]=(int)t->value->int32;
+  t=dict_find(it,MESSAGE_KEY_PEEK_WX2); if(t) s_d.pk_wx[1]=(int)t->value->int32;
+  t=dict_find(it,MESSAGE_KEY_PEEK_T2);  if(t) s_d.pk_t[1]=(int)t->value->int32;
+  t=dict_find(it,MESSAGE_KEY_PEEK_H2);  if(t) s_d.pk_h[1]=(int)t->value->int32;
+  t=dict_find(it,MESSAGE_KEY_PEEK_WX3); if(t) s_d.pk_wx[2]=(int)t->value->int32;
+  t=dict_find(it,MESSAGE_KEY_PEEK_T3);  if(t) s_d.pk_t[2]=(int)t->value->int32;
+  t=dict_find(it,MESSAGE_KEY_PEEK_H3);  if(t) s_d.pk_h[2]=(int)t->value->int32;
 
   s_d.valid=true;
   if(s_canvas) layer_mark_dirty(s_canvas);
@@ -873,6 +909,7 @@ static void win_load(Window *w){
 }
 static void win_unload(Window *w){
   if(s_timer){app_timer_cancel(s_timer);s_timer=NULL;}
+  if(s_peek_timer){app_timer_cancel(s_peek_timer);s_peek_timer=NULL;}
   if(s_canvas){layer_destroy(s_canvas);s_canvas=NULL;}
 }
 

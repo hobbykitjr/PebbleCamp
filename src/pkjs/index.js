@@ -90,7 +90,7 @@ function fetchWeatherAndForecast(lat, lng, callback) {
             '&temperature_unit=fahrenheit' +
             '&wind_speed_unit=mph' +
             '&timezone=auto' +
-            '&forecast_days=1';
+            '&forecast_days=2';
 
   xhrRequest(url, 'GET', function (resp) {
     try {
@@ -98,41 +98,61 @@ function fetchWeatherAndForecast(lat, lng, callback) {
       var temp = Math.round(j.current.temperature_2m);
       var wxCode = wmoToSimple(j.current.weather_code);
       var wind = j.current.wind_speed_10m;
-      if (wind > 20 && wxCode < 4) wxCode = 7;  // Windy
+      if (wind > 20 && wxCode < 4) wxCode = 7;
 
       var srParts = j.daily.sunrise[0].split('T')[1].split(':');
       var ssParts = j.daily.sunset[0].split('T')[1].split(':');
       var hi = Math.round(j.daily.temperature_2m_max[0]);
       var lo = Math.round(j.daily.temperature_2m_min[0]);
 
-      // 3-hour forecast: find current hour index, grab next 3
+      // Smart peek slots: pick 3 meaningful future times
       var now = new Date();
       var curHour = now.getHours();
-      var fc = [];
-      for (var h = curHour + 1; h <= curHour + 3 && h < j.hourly.time.length; h++) {
-        var hTime = j.hourly.time[h];
-        var hHour = parseInt(hTime.split('T')[1].split(':')[0]);
-        fc.push({
-          hour: hHour,
-          wx: wmoToSimple(j.hourly.weather_code[h]),
-          temp: Math.round(j.hourly.temperature_2m[h])
-        });
-      }
-      // Pad to 3 if needed
-      while (fc.length < 3) fc.push({ hour: 0, wx: 0, temp: 0 });
+      var sunsetH = parseInt(ssParts[0]);
 
-      console.log('Weather: ' + temp + 'F, hi=' + hi + ' lo=' + lo +
-                  ', wx=' + wxCode + ', wind=' + wind);
-      console.log('Sun: ' + srParts[0] + ':' + srParts[1] +
-                  ' - ' + ssParts[0] + ':' + ssParts[1]);
-      console.log('Forecast: ' + JSON.stringify(fc));
+      // Slot 1: afternoon/next daytime block (2-3pm or next meaningful hour)
+      // Slot 2: evening/night
+      // Slot 3: tomorrow midday
+      var slots = [];
+      if (curHour < 12) {
+        slots.push(14);  // This afternoon
+        slots.push(sunsetH + 1);  // Tonight
+        slots.push(24 + 12);  // Tomorrow noon
+      } else if (curHour < sunsetH) {
+        slots.push(sunsetH + 1);  // Tonight
+        slots.push(24 + 8);  // Tomorrow morning
+        slots.push(24 + 14);  // Tomorrow afternoon
+      } else {
+        slots.push(24 + 8);   // Tomorrow morning
+        slots.push(24 + 14);  // Tomorrow afternoon
+        slots.push(24 + sunsetH + 1);  // Tomorrow night
+      }
+
+      var peeks = [];
+      for (var s = 0; s < 3; s++) {
+        var idx = slots[s];
+        if (idx < j.hourly.weather_code.length) {
+          var hTime = j.hourly.time[idx];
+          peeks.push({
+            hour: parseInt(hTime.split('T')[1].split(':')[0]),
+            wx: wmoToSimple(j.hourly.weather_code[idx]),
+            temp: Math.round(j.hourly.temperature_2m[idx])
+          });
+        } else {
+          peeks.push({ hour: 12, wx: 0, temp: 0 });
+        }
+      }
+
+      console.log('Weather: ' + temp + 'F, hi=' + hi + ' lo=' + lo + ', wx=' + wxCode);
+      console.log('Sun: ' + srParts[0] + ':' + srParts[1] + ' - ' + ssParts[0] + ':' + ssParts[1]);
+      console.log('Peeks: ' + JSON.stringify(peeks));
 
       callback({
         temperature: temp, weatherCode: wxCode,
         tempHigh: hi, tempLow: lo,
         sunriseHour: parseInt(srParts[0]), sunriseMin: parseInt(srParts[1]),
         sunsetHour: parseInt(ssParts[0]), sunsetMin: parseInt(ssParts[1]),
-        forecast: fc
+        peeks: peeks
       });
     } catch (e) {
       console.log('Weather parse error: ' + e);
@@ -160,12 +180,9 @@ function fetchAllData() {
         'TEMP_LOW': data.tempLow,
         'TOWN_NAME': placeName || '',
         'DISPLAY_MODE': settings.displayMode,
-        'FC_WX1': data.forecast[0].wx,
-        'FC_WX2': data.forecast[1].wx,
-        'FC_WX3': data.forecast[2].wx,
-        'FC_H1': data.forecast[0].hour,
-        'FC_H2': data.forecast[1].hour,
-        'FC_H3': data.forecast[2].hour
+        'PEEK_WX1': data.peeks[0].wx,  'PEEK_T1': data.peeks[0].temp,  'PEEK_H1': data.peeks[0].hour,
+        'PEEK_WX2': data.peeks[1].wx,  'PEEK_T2': data.peeks[1].temp,  'PEEK_H2': data.peeks[1].hour,
+        'PEEK_WX3': data.peeks[2].wx,  'PEEK_T3': data.peeks[2].temp,  'PEEK_H3': data.peeks[2].hour
       };
       Pebble.sendAppMessage(msg,
         function () { console.log('Data sent'); },
