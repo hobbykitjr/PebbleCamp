@@ -12,6 +12,7 @@ var settings = {
   displayMode: 3,     // bit0=sun, bit1=hilo (3 = both on)
   showSun: 1,
   showHiLo: 1,
+  useCelsius: 0,
   devMode: 0
 };
 
@@ -89,7 +90,7 @@ function fetchWeatherAndForecast(lat, lng, callback) {
             '&current=temperature_2m,weather_code,wind_speed_10m' +
             '&daily=sunrise,sunset,temperature_2m_max,temperature_2m_min' +
             '&hourly=weather_code,temperature_2m' +
-            '&temperature_unit=fahrenheit' +
+            '&temperature_unit=' + (settings.useCelsius ? 'celsius' : 'fahrenheit') +
             '&wind_speed_unit=mph' +
             '&timezone=auto' +
             '&forecast_days=2';
@@ -204,6 +205,7 @@ function loadSettings() {
       if (p.displayMode !== undefined) settings.displayMode = p.displayMode;
       if (p.showSun !== undefined) settings.showSun = p.showSun;
       if (p.showHiLo !== undefined) settings.showHiLo = p.showHiLo;
+      if (p.useCelsius !== undefined) settings.useCelsius = p.useCelsius;
       if (p.devMode !== undefined) settings.devMode = p.devMode;
     }
   } catch (e) {}
@@ -215,6 +217,7 @@ function saveSettings() {
 Pebble.addEventListener('showConfiguration', function () {
   var url = 'https://hobbykitjr.github.io/PebbleCamp/config/index.html' +
     '?zip=' + encodeURIComponent(settings.zipCode) +
+    '&unit=' + (settings.useCelsius !== undefined ? settings.useCelsius : 0) +
     '&sun=' + (settings.showSun !== undefined ? settings.showSun : 1) +
     '&hilo=' + (settings.showHiLo !== undefined ? settings.showHiLo : 1) +
     '&dev=' + settings.devMode;
@@ -232,6 +235,7 @@ Pebble.addEventListener('webviewclosed', function (e) {
       if (config.displayMode !== undefined) settings.displayMode = parseInt(config.displayMode);
       if (config.showSun !== undefined) settings.showSun = parseInt(config.showSun);
       if (config.showHiLo !== undefined) settings.showHiLo = parseInt(config.showHiLo);
+      if (config.useCelsius !== undefined) settings.useCelsius = parseInt(config.useCelsius);
       if (config.devMode !== undefined) settings.devMode = parseInt(config.devMode);
       saveSettings();
       console.log('Settings updated: zip=' + settings.zipCode + ' mode=' + settings.displayMode);

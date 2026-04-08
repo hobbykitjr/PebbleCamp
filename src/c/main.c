@@ -579,23 +579,21 @@ static void draw_firewood(GContext *ctx, GRect b) {
   #endif
 
   // Stacked circles viewed from the end: 3 bottom, 2 top
-  // Bottom row
-  int bx[]={cx-r-1, cx, cx+r+1};
+  // Bottom row — spaced so circles just touch (2*r apart center to center)
+  int sp=r*2+1;  // spacing: diameter + 1px gap
+  int bx[]={cx-sp, cx, cx+sp};
   for(int i=0;i<3;i++){
     bool on=i<filled;
-    // Outer circle (bark)
     graphics_context_set_fill_color(ctx,on?ring:empty_ring);
     graphics_fill_circle(ctx,GPoint(bx[i],by),r);
-    // Inner circle (wood)
     graphics_context_set_fill_color(ctx,on?wood:empty);
     graphics_fill_circle(ctx,GPoint(bx[i],by),r-2);
-    // Center dot (rings)
     graphics_context_set_fill_color(ctx,on?ring:empty_ring);
     graphics_fill_circle(ctx,GPoint(bx[i],by),1);
   }
-  // Top row: 2 circles sitting in the gaps
-  int tx[]={cx-(r/2+1), cx+(r/2+1)};
-  int top_y=by-r-r/2;
+  // Top row: 2 circles nestled between bottom row
+  int tx[]={cx-sp/2, cx+sp/2};
+  int top_y=by-r*2+1;
   for(int i=0;i<2;i++){
     bool on=(i+3)<filled;
     graphics_context_set_fill_color(ctx,on?ring:empty_ring);
@@ -718,7 +716,7 @@ static void draw_hud(GContext *ctx, GRect b) {
     char hilo[16];
     snprintf(hilo,sizeof(hilo),"H:%d L:%d",s_d.hi,s_d.lo);
     graphics_context_set_text_color(ctx,C_INFO);
-    graphics_draw_text(ctx,hilo,f14,GRect(0,b.size.h-26,w,16),
+    graphics_draw_text(ctx,hilo,f14,GRect(6,b.size.h-26,w,16),
       GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
   }
 

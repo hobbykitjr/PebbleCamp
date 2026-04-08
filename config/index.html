@@ -67,6 +67,16 @@
   </div>
 
   <div class="card">
+    <h2>Temperature</h2>
+    <div class="toggle-group">
+      <input type="radio" name="tempUnit" id="tempF" value="0">
+      <label for="tempF">&deg;F</label>
+      <input type="radio" name="tempUnit" id="tempC" value="1">
+      <label for="tempC">&deg;C</label>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>Sunrise / Sunset Times</h2>
     <div class="toggle-group">
       <input type="radio" name="showSun" id="sunOn" value="1">
@@ -109,6 +119,9 @@
     var zipField = document.getElementById('zipCode');
     zipField.value = getParam('zip') || '';
 
+    var tempUnit = getParam('unit') || '0';
+    document.getElementById(tempUnit === '1' ? 'tempC' : 'tempF').checked = true;
+
     var showSun = getParam('sun') || '1';
     document.getElementById(showSun === '1' ? 'sunOn' : 'sunOff').checked = true;
     var showHiLo = getParam('hilo') || '1';
@@ -134,17 +147,19 @@
     }
 
     document.getElementById('saveBtn').addEventListener('click', function () {
+      var selUnit = document.querySelector('input[name="tempUnit"]:checked');
       var selSun = document.querySelector('input[name="showSun"]:checked');
       var selHiLo = document.querySelector('input[name="showHiLo"]:checked');
       var selectedDev = document.querySelector('input[name="devMode"]:checked');
-      // Pack sun+hilo into displayMode: bit0=sun, bit1=hilo
       var sun = selSun ? parseInt(selSun.value) : 1;
       var hilo = selHiLo ? parseInt(selHiLo.value) : 1;
+      var unit = selUnit ? parseInt(selUnit.value) : 0;
       var result = {
         zipCode: zipField.value.trim() || '17948',
         displayMode: sun | (hilo << 1),
         showSun: sun,
         showHiLo: hilo,
+        useCelsius: unit,
         devMode: selectedDev ? selectedDev.value : '0'
       };
       returnResult(JSON.stringify(result));
