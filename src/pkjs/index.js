@@ -215,8 +215,8 @@ function saveSettings() {
 Pebble.addEventListener('showConfiguration', function () {
   var url = 'https://hobbykitjr.github.io/PebbleCamp/config/index.html' +
     '?zip=' + encodeURIComponent(settings.zipCode) +
-    '&sun=' + (settings.showSun || 1) +
-    '&hilo=' + (settings.showHiLo || 1) +
+    '&sun=' + (settings.showSun !== undefined ? settings.showSun : 1) +
+    '&hilo=' + (settings.showHiLo !== undefined ? settings.showHiLo : 1) +
     '&dev=' + settings.devMode;
   console.log('Opening config: ' + url);
   Pebble.openURL(url);

@@ -715,13 +715,13 @@ static void draw_hud(GContext *ctx, GRect b) {
   // Date (smaller font)
   txt(ctx,s_dbuf,f14,GRect(0,ty+44,w,18),GTextAlignmentCenter);
 
-  // Sunrise/sunset times
+  // Sunrise/sunset times (pushed down below time/date)
   if(s_show_sun) {
     snprintf(s_sr,sizeof(s_sr),"%d:%02d",fmt_h(s_d.sr_h),s_d.sr_m);
     snprintf(s_ss,sizeof(s_ss),"%d:%02d",fmt_h(s_d.ss_h),s_d.ss_m);
-    int mid_y=b.size.h/2-5;
-    txt(ctx,s_sr,f14,GRect(8,mid_y,50,18),GTextAlignmentLeft);
-    txt(ctx,s_ss,f14,GRect(w-58,mid_y,50,18),GTextAlignmentRight);
+    int sun_y=ty+60;
+    txt(ctx,s_sr,f14,GRect(8,sun_y,50,18),GTextAlignmentLeft);
+    txt(ctx,s_ss,f14,GRect(w-58,sun_y,50,18),GTextAlignmentRight);
   }
 
   // Hi/Lo temps
