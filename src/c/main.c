@@ -716,7 +716,7 @@ static void draw_hud(GContext *ctx, GRect b) {
 
   // Time
   int ty=58;
-  GFont f_time = s_show_sec ? fonts_get_system_font(FONT_KEY_LECO_32_NUMBERS) : f42;
+  GFont f_time = s_show_sec ? fonts_get_system_font(FONT_KEY_LECO_36_NUMBERS) : f42;
   txt(ctx,s_tbuf,f_time,GRect(0,ty,w,50),GTextAlignmentCenter);
 
   // Date
@@ -851,7 +851,6 @@ static void tap_cb(AccelAxisType a, int32_t d){
       if(clock_is_24h_style()) snprintf(s_tbuf,sizeof(s_tbuf),"%d:00",s_hr);
       else { int h=s_hr%12; if(!h)h=12; snprintf(s_tbuf,sizeof(s_tbuf),"%d:00",h); }
       // Show peek label as date line
-      bool is_tmrw=(s_d.pk_h[s_peek]!=s_hr); // Approximate
       int ph=s_d.pk_h[s_peek];
       const char *period;
       if(ph>=5 && ph<12) period="Morning";
