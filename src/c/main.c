@@ -716,7 +716,7 @@ static void draw_hud(GContext *ctx, GRect b) {
 
   // Time
   int ty=58;
-  GFont f_time = s_show_sec ? fonts_get_system_font(FONT_KEY_LECO_36_NUMBERS) : f42;
+  GFont f_time = s_show_sec ? fonts_get_system_font(FONT_KEY_LECO_28_NUMBERS) : f42;
   txt(ctx,s_tbuf,f_time,GRect(0,ty,w,50),GTextAlignmentCenter);
 
   // Date
