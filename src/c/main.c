@@ -32,6 +32,7 @@
 #define P_SHOW_SUN   9
 #define P_SHOW_HILO  10
 #define P_DEV_MODE   11
+#define P_SHOW_SEC   12
 
 // Weather
 #define WX_CLEAR   0
@@ -128,7 +129,7 @@ static Data s_d={.sr_h=6,.sr_m=0,.ss_h=20,.ss_m=0,.temp=55,.wx=WX_CLEAR,
 static char s_tbuf[8],s_dbuf[16],s_sr[8],s_ss[8],s_tmp[8];
 static int s_hr=12, s_mn=0;
 static bool s_dev=false;
-static bool s_show_sun=true, s_show_hilo=true;
+static bool s_show_sun=true, s_show_hilo=true, s_show_sec=false;
 static int s_fire_frame=0;  // Animation frame counter
 static int s_peek=-1;       // Peek state: -1=normal, 0/1/2=peek slot
 static AppTimer *s_peek_timer=NULL;
@@ -715,7 +716,8 @@ static void draw_hud(GContext *ctx, GRect b) {
 
   // Time
   int ty=58;
-  txt(ctx,s_tbuf,f42,GRect(0,ty,w,50),GTextAlignmentCenter);
+  GFont f_time = s_show_sec ? fonts_get_system_font(FONT_KEY_LECO_32_NUMBERS) : f42;
+  txt(ctx,s_tbuf,f_time,GRect(0,ty,w,50),GTextAlignmentCenter);
 
   // Date
   txt(ctx,s_dbuf,f_date,GRect(0,ty+44,w,22),GTextAlignmentCenter);
@@ -761,7 +763,11 @@ static void canvas_proc(Layer *l, GContext *ctx) {
 static void upd_time(void){
   time_t t=time(NULL); struct tm *tm=localtime(&t); if(!tm) return;
   s_hr=tm->tm_hour; s_mn=tm->tm_min;
-  strftime(s_tbuf,sizeof(s_tbuf),clock_is_24h_style()?"%H:%M":"%I:%M",tm);
+  if(s_show_sec) {
+    strftime(s_tbuf,sizeof(s_tbuf),clock_is_24h_style()?"%H:%M:%S":"%I:%M:%S",tm);
+  } else {
+    strftime(s_tbuf,sizeof(s_tbuf),clock_is_24h_style()?"%H:%M":"%I:%M",tm);
+  }
   if(!clock_is_24h_style()&&s_tbuf[0]=='0')
     memmove(s_tbuf,&s_tbuf[1],sizeof(s_tbuf)-1);
   strftime(s_dbuf,sizeof(s_dbuf),"%a, %b %d",tm);
@@ -889,11 +895,15 @@ static void inbox_cb(DictionaryIterator *it, void *c){
   t=dict_find(it,MESSAGE_KEY_DISPLAY_MODE);
   if(t) {
     int mode=(int)t->value->int32;
-    // Mode encodes two bits: bit0=show_sun, bit1=show_hilo
-    s_show_sun=mode&1; s_show_hilo=(mode>>1)&1;
+    // Mode encodes bits: bit0=show_sun, bit1=show_hilo, bit2=show_sec
+    s_show_sun=mode&1; s_show_hilo=(mode>>1)&1; s_show_sec=(mode>>2)&1;
     persist_write_bool(P_SHOW_SUN,s_show_sun);
     persist_write_bool(P_SHOW_HILO,s_show_hilo);
-    APP_LOG(APP_LOG_LEVEL_INFO,"Config: sun=%d hilo=%d (mode=%d)",s_show_sun,s_show_hilo,mode);
+    persist_write_bool(P_SHOW_SEC,s_show_sec);
+    // Re-subscribe tick timer with correct unit
+    tick_timer_service_unsubscribe();
+    tick_timer_service_subscribe(s_show_sec?SECOND_UNIT:MINUTE_UNIT,tick_cb);
+    APP_LOG(APP_LOG_LEVEL_INFO,"Config: sun=%d hilo=%d sec=%d",s_show_sun,s_show_hilo,s_show_sec);
   }
   t=dict_find(it,MESSAGE_KEY_TOWN_NAME);
   if(t) snprintf(s_d.town,sizeof(s_d.town),"%s",t->value->cstring);
@@ -944,6 +954,7 @@ static void load_data(void){
   }
   if(persist_exists(P_SHOW_SUN)) s_show_sun=persist_read_bool(P_SHOW_SUN);
   if(persist_exists(P_SHOW_HILO)) s_show_hilo=persist_read_bool(P_SHOW_HILO);
+  if(persist_exists(P_SHOW_SEC)) s_show_sec=persist_read_bool(P_SHOW_SEC);
   if(persist_exists(P_DEV_MODE)) s_dev=persist_read_bool(P_DEV_MODE);
 }
 
@@ -979,7 +990,7 @@ static void init(void){
   window_set_background_color(s_win,GColorBlack);
   window_set_window_handlers(s_win,(WindowHandlers){.load=win_load,.unload=win_unload});
   window_stack_push(s_win,true);
-  tick_timer_service_subscribe(MINUTE_UNIT,tick_cb);
+  tick_timer_service_subscribe(s_show_sec?SECOND_UNIT:MINUTE_UNIT,tick_cb);
   battery_state_service_subscribe(bat_cb);
   connection_service_subscribe((ConnectionHandlers){.pebble_app_connection_handler=bt_cb});
   accel_tap_service_subscribe(tap_cb);

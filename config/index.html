@@ -97,6 +97,17 @@
   </div>
 
   <div class="card">
+    <h2>Show Seconds</h2>
+    <div class="toggle-group">
+      <input type="radio" name="showSec" id="secOff" value="0">
+      <label for="secOff">Off</label>
+      <input type="radio" name="showSec" id="secOn" value="1">
+      <label for="secOn">On</label>
+    </div>
+    <p class="hint">Display seconds on the clock. Uses more battery.</p>
+  </div>
+
+  <div class="card">
     <h2>Developer</h2>
     <div class="toggle-group">
       <input type="radio" name="devMode" id="devOff" value="0">
@@ -127,6 +138,9 @@
     var showHiLo = getParam('hilo') || '1';
     document.getElementById(showHiLo === '1' ? 'hiloOn' : 'hiloOff').checked = true;
 
+    var showSec = getParam('sec') || '0';
+    document.getElementById(showSec === '1' ? 'secOn' : 'secOff').checked = true;
+
     var currentDev = getParam('dev') || '0';
     if (currentDev === '1') document.getElementById('devOn').checked = true;
     else document.getElementById('devOff').checked = true;
@@ -151,12 +165,15 @@
       var selSun = document.querySelector('input[name="showSun"]:checked');
       var selHiLo = document.querySelector('input[name="showHiLo"]:checked');
       var selectedDev = document.querySelector('input[name="devMode"]:checked');
+      var selSec = document.querySelector('input[name="showSec"]:checked');
       var sun = selSun ? parseInt(selSun.value) : 1;
       var hilo = selHiLo ? parseInt(selHiLo.value) : 1;
       var unit = selUnit ? parseInt(selUnit.value) : 0;
+      var sec = selSec ? parseInt(selSec.value) : 0;
       var result = {
         zipCode: zipField.value.trim() || '17948',
-        displayMode: sun | (hilo << 1),
+        displayMode: sun | (hilo << 1) | (sec << 2),
+        showSec: sec,
         showSun: sun,
         showHiLo: hilo,
         useCelsius: unit,

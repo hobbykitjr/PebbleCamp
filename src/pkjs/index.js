@@ -12,6 +12,7 @@ var settings = {
   displayMode: 3,     // bit0=sun, bit1=hilo (3 = both on)
   showSun: 1,
   showHiLo: 1,
+  showSec: 0,
   useCelsius: 0,
   devMode: 0
 };
@@ -205,6 +206,7 @@ function loadSettings() {
       if (p.displayMode !== undefined) settings.displayMode = p.displayMode;
       if (p.showSun !== undefined) settings.showSun = p.showSun;
       if (p.showHiLo !== undefined) settings.showHiLo = p.showHiLo;
+      if (p.showSec !== undefined) settings.showSec = p.showSec;
       if (p.useCelsius !== undefined) settings.useCelsius = p.useCelsius;
       if (p.devMode !== undefined) settings.devMode = p.devMode;
     }
@@ -220,6 +222,7 @@ Pebble.addEventListener('showConfiguration', function () {
     '&unit=' + (settings.useCelsius !== undefined ? settings.useCelsius : 0) +
     '&sun=' + (settings.showSun !== undefined ? settings.showSun : 1) +
     '&hilo=' + (settings.showHiLo !== undefined ? settings.showHiLo : 1) +
+    '&sec=' + (settings.showSec !== undefined ? settings.showSec : 0) +
     '&dev=' + settings.devMode;
   console.log('Opening config: ' + url);
   Pebble.openURL(url);
@@ -235,6 +238,7 @@ Pebble.addEventListener('webviewclosed', function (e) {
       if (config.displayMode !== undefined) settings.displayMode = parseInt(config.displayMode);
       if (config.showSun !== undefined) settings.showSun = parseInt(config.showSun);
       if (config.showHiLo !== undefined) settings.showHiLo = parseInt(config.showHiLo);
+      if (config.showSec !== undefined) settings.showSec = parseInt(config.showSec);
       if (config.useCelsius !== undefined) settings.useCelsius = parseInt(config.useCelsius);
       if (config.devMode !== undefined) settings.devMode = parseInt(config.devMode);
       saveSettings();
