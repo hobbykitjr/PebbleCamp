@@ -126,7 +126,7 @@ static bool s_bt=true;
 static Data s_d={.sr_h=6,.sr_m=0,.ss_h=20,.ss_m=0,.temp=55,.wx=WX_CLEAR,
   .hi=65,.lo=40,.town="Locust Lake, PA",.valid=false};
 
-static char s_tbuf[8],s_dbuf[16],s_sr[8],s_ss[8],s_tmp[8];
+static char s_tbuf[12],s_dbuf[16],s_sr[8],s_ss[8],s_tmp[8];
 static int s_hr=12, s_mn=0;
 static bool s_dev=false;
 static bool s_show_sun=true, s_show_hilo=true, s_show_sec=false;
@@ -716,7 +716,7 @@ static void draw_hud(GContext *ctx, GRect b) {
 
   // Time
   int ty=58;
-  GFont f_time = s_show_sec ? fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD) : f42;
+  GFont f_time = (s_show_sec && !big) ? fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD) : f42;
   txt(ctx,s_tbuf,f_time,GRect(0,ty,w,50),GTextAlignmentCenter);
 
   // Date
