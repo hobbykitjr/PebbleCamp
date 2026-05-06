@@ -860,6 +860,8 @@ static void tap_cb(AccelAxisType a, int32_t d){
     s_peek++;
     if(s_peek>2) s_peek=-1;
     if(s_peek>=0) {
+      // Save real hour before overriding
+      int real_hr=s_hr;
       // Override time/weather with peek slot
       s_hr=s_d.pk_h[s_peek]; s_mn=0;
       // Format peeked time
@@ -868,10 +870,10 @@ static void tap_cb(AccelAxisType a, int32_t d){
       // Show peek label as date line
       int ph=s_d.pk_h[s_peek];
       const char *period;
-      if(ph>=5 && ph<12) period="Morning";
+      if(ph<=real_hr) period="Tomorrow";
+      else if(ph>=5 && ph<12) period="Morning";
       else if(ph>=12 && ph<17) period="Afternoon";
-      else if(ph>=17 && ph<21) period="Tonight";
-      else period="Tomorrow";
+      else period="Tonight";
       const char *arrows = (s_peek==0) ? ">" : (s_peek==1) ? ">>" : ">>>";
       snprintf(s_dbuf,sizeof(s_dbuf),"%s %s",arrows,period);
     } else {
