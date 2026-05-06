@@ -1,45 +1,63 @@
 {
-  "name": "pebble-camp",
-  "author": "Hobbykitjr",
-  "version": "1.0.0",
-  "keywords": ["pebble-app"],
-  "private": true,
-  "dependencies": {},
-  "pebble": {
-    "displayName": "Pixel Camp",
-    "uuid": "a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
-    "sdkVersion": "3",
-    "enableMultiJS": true,
-    "targetPlatforms": ["basalt", "chalk", "emery", "gabbro"],
-    "capabilities": ["location", "configurable"],
-    "messageKeys": {
-      "SUNRISE_HOUR": 0,
-      "SUNRISE_MIN": 1,
-      "SUNSET_HOUR": 2,
-      "SUNSET_MIN": 3,
-      "TEMPERATURE": 4,
-      "WEATHER_CODE": 5,
-      "TEMP_HIGH": 6,
-      "TEMP_LOW": 7,
-      "TOWN_NAME": 8,
-      "DISPLAY_MODE": 9,
-      "DEV_MODE": 10,
-      "REQUEST_DATA": 11,
-      "PEEK_WX1": 12,
-      "PEEK_T1": 13,
-      "PEEK_H1": 14,
-      "PEEK_WX2": 15,
-      "PEEK_T2": 16,
-      "PEEK_H2": 17,
-      "PEEK_WX3": 18,
-      "PEEK_T3": 19,
-      "PEEK_H3": 20
+    "author": "Hobbykitjr",
+    "dependencies": {},
+    "keywords": [
+        "pebble-app"
+    ],
+    "name": "pebble-camp",
+    "pebble": {
+        "capabilities": [
+            "location",
+            "configurable"
+        ],
+        "displayName": "Pixel Camp",
+        "enableMultiJS": true,
+        "messageKeys": {
+            "DEV_MODE": 10,
+            "DISPLAY_MODE": 9,
+            "PEEK_H1": 14,
+            "PEEK_H2": 17,
+            "PEEK_H3": 20,
+            "PEEK_T1": 13,
+            "PEEK_T2": 16,
+            "PEEK_T3": 19,
+            "PEEK_WX1": 12,
+            "PEEK_WX2": 15,
+            "PEEK_WX3": 18,
+            "REQUEST_DATA": 11,
+            "SUNRISE_HOUR": 0,
+            "SUNRISE_MIN": 1,
+            "SUNSET_HOUR": 2,
+            "SUNSET_MIN": 3,
+            "TEMPERATURE": 4,
+            "TEMP_HIGH": 6,
+            "TEMP_LOW": 7,
+            "TOWN_NAME": 8,
+            "WEATHER_CODE": 5
+        },
+        "projectType": "native",
+        "resources": {
+            "media": [
+                {
+                    "file": "images/menu_icon.png",
+                    "menuIcon": true,
+                    "name": "menu_icon",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                }
+            ]
+        },
+        "sdkVersion": "3",
+        "targetPlatforms": [
+            "basalt",
+            "chalk",
+            "emery",
+            "gabbro"
+        ],
+        "uuid": "3cf88604-503b-4b0f-b57b-88b893821cd9",
+        "watchapp": {
+            "watchface": true
+        }
     },
-    "watchapp": {
-      "watchface": true
-    },
-    "resources": {
-      "media": []
-    }
-  }
+    "version": "1.3.0"
 }
