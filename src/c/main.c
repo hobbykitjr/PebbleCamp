@@ -133,8 +133,6 @@ static bool s_show_sun=true, s_show_hilo=true, s_show_sec=false;
 static int s_fire_frame=0;  // Animation frame counter
 static int s_peek=-1;       // Peek state: -1=normal, 0/1/2=peek slot
 static AppTimer *s_peek_timer=NULL;
-static bool s_tap_ignore=false;  // Ignore taps briefly after wake
-static AppTimer *s_tap_ignore_timer=NULL;
 
 // Layout values (set once in win_load based on screen size)
 static int L_W, L_H;        // Screen width/height
@@ -836,20 +834,9 @@ static void peek_revert_cb(void *data){
   upd_time();  // Restore real time
   if(s_canvas) layer_mark_dirty(s_canvas);
 }
-static void tap_ignore_cb(void *data){
-  s_tap_ignore_timer=NULL;
-  s_tap_ignore=false;
-}
-static void focus_cb(bool focused){
-  if(focused){
-    // Screen just woke — ignore taps for 500ms to avoid shake-to-wake triggering peek
-    s_tap_ignore=true;
-    if(s_tap_ignore_timer) app_timer_cancel(s_tap_ignore_timer);
-    s_tap_ignore_timer=app_timer_register(500,tap_ignore_cb,NULL);
-  }
-}
-static void tap_cb(AccelAxisType a, int32_t d){
-  if(s_tap_ignore) return;
+static void touch_cb(const TouchEvent *event, void *context){
+  (void)context;
+  if(event->type != TouchEvent_Touchdown) return;
   if(s_dev||!s_d.valid){
     s_pre++; if(s_pre>=NUM_PRESETS) s_pre=0;
     apply_pre(s_pre);
@@ -993,7 +980,6 @@ static void win_load(Window *w){
 static void win_unload(Window *w){
   if(s_timer){app_timer_cancel(s_timer);s_timer=NULL;}
   if(s_peek_timer){app_timer_cancel(s_peek_timer);s_peek_timer=NULL;}
-  if(s_tap_ignore_timer){app_timer_cancel(s_tap_ignore_timer);s_tap_ignore_timer=NULL;}
   if(s_canvas){layer_destroy(s_canvas);s_canvas=NULL;}
 }
 
@@ -1010,8 +996,7 @@ static void init(void){
   tick_timer_service_subscribe(s_show_sec?SECOND_UNIT:MINUTE_UNIT,tick_cb);
   battery_state_service_subscribe(bat_cb);
   connection_service_subscribe((ConnectionHandlers){.pebble_app_connection_handler=bt_cb});
-  accel_tap_service_subscribe(tap_cb);
-  app_focus_service_subscribe(focus_cb);
+  touch_service_subscribe(touch_cb, NULL);
   app_message_register_inbox_received(inbox_cb);
   app_message_register_inbox_dropped(drop_cb);
   app_message_register_outbox_failed(fail_cb);
@@ -1022,8 +1007,7 @@ static void deinit(void){
   tick_timer_service_unsubscribe();
   battery_state_service_unsubscribe();
   connection_service_unsubscribe();
-  accel_tap_service_unsubscribe();
-  app_focus_service_unsubscribe();
+  touch_service_unsubscribe();
   window_destroy(s_win);
 }
 int main(void){init();app_event_loop();deinit();return 0;}
