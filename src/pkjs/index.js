@@ -215,14 +215,19 @@ function fetchWeatherAndForecast(lat, lng, callback) {
 // ============================================================================
 // DATA FETCH
 // ============================================================================
+var fetchGeneration = 0;
+
 function fetchAllData() {
-  console.log('Fetching data for: ' + settings.zipCode + ' (celsius=' + settings.useCelsius + ')');
+  var myGen = ++fetchGeneration;
+  console.log('Fetching data for: ' + settings.zipCode + ' (celsius=' + settings.useCelsius + ' gen=' + myGen + ')');
   geocodeZip(settings.zipCode, function (lat, lng, placeName) {
+    if (myGen !== fetchGeneration) { console.log('Fetch gen ' + myGen + ' superseded'); return; }
     // Geocoding succeeded — clear any previous error
     settings.locError = '';
     saveSettings();
     fetchWeatherAndForecast(lat, lng, function (data) {
       if (!data) return;
+      if (myGen !== fetchGeneration) { console.log('Fetch gen ' + myGen + ' superseded'); return; }
       var msg = {
         'SUNRISE_HOUR': data.sunriseHour,
         'SUNRISE_MIN': data.sunriseMin,
@@ -238,10 +243,11 @@ function fetchAllData() {
         'PEEK_WX3': data.peeks[2].wx,  'PEEK_T3': data.peeks[2].temp,  'PEEK_H3': data.peeks[2].hour
       };
       Pebble.sendAppMessage(msg,
-        function () { console.log('Data sent'); },
-        function () { console.log('Send failed'); });
+        function () { console.log('Data sent (gen ' + myGen + ')'); },
+        function () { console.log('Send failed (gen ' + myGen + ')'); });
     });
   }, function (errMsg) {
+    if (myGen !== fetchGeneration) return;
     // Geocoding failed — save error for config page to show
     console.log('Geocode failed: ' + errMsg);
     settings.locError = errMsg;
