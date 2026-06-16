@@ -25,13 +25,22 @@ var settings = {
 // HTTP HELPER
 // ============================================================================
 function xhrRequest(url, type, callback, errorCallback) {
+  console.log('XHR: ' + url.substring(0, 80));
   var xhr = new XMLHttpRequest();
+  var done = false;
   xhr.onload = function () {
+    if (done) return; done = true;
     if (xhr.status === 200) callback(this.responseText);
-    else { console.log('HTTP ' + xhr.status); if (errorCallback) errorCallback(); }
+    else { console.log('HTTP ' + xhr.status + ' from ' + url.substring(0, 60)); if (errorCallback) errorCallback(); }
   };
   xhr.onerror = function () {
-    console.log('XHR error'); if (errorCallback) errorCallback();
+    if (done) return; done = true;
+    console.log('XHR error: ' + url.substring(0, 60)); if (errorCallback) errorCallback();
+  };
+  xhr.timeout = 10000;
+  xhr.ontimeout = function () {
+    if (done) return; done = true;
+    console.log('XHR timeout: ' + url.substring(0, 60)); if (errorCallback) errorCallback();
   };
   xhr.open(type, url);
   xhr.send();
@@ -44,7 +53,7 @@ function isUSZip(str) { return /^\d{5}(-\d{4})?$/.test(str.trim()); }
 function isCanadianPostal(str) { return /^[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d$/.test(str.trim()); }
 function isUKPostcode(str) { return /^[A-Za-z]{1,2}\d[A-Za-z\d]?\s?\d[A-Za-z]{2}$/.test(str.trim()); }
 
-function geocodeZippopotam(country, code, callback, errorCallback) {
+function geocodeZippopotam(country, code, fullQuery, callback, errorCallback) {
   var url = 'https://api.zippopotam.us/' + country + '/' + code;
   xhrRequest(url, 'GET', function (resp) {
     try {
@@ -52,24 +61,22 @@ function geocodeZippopotam(country, code, callback, errorCallback) {
       if (j.places && j.places.length > 0) {
         callback(parseFloat(j.places[0].latitude), parseFloat(j.places[0].longitude),
                  j.places[0]['place name'] + ', ' + j.places[0]['state abbreviation']);
-      } else { geocodeOpenMeteo(code, callback, errorCallback); }
-    } catch (e) { geocodeOpenMeteo(code, callback, errorCallback); }
-  }, function () { geocodeOpenMeteo(code, callback, errorCallback); });
+      } else { geocodeNominatim(fullQuery, callback, errorCallback); }
+    } catch (e) { geocodeNominatim(fullQuery, callback, errorCallback); }
+  }, function () { geocodeNominatim(fullQuery, callback, errorCallback); });
 }
 
 function geocodeZip(zipCode, callback, errorCallback) {
   var q = zipCode.trim();
   if (isUSZip(q)) {
-    geocodeZippopotam('us', q, callback, errorCallback);
+    geocodeZippopotam('us', q, q, callback, errorCallback);
   } else if (isCanadianPostal(q)) {
-    // Zippopotam uses FSA (first 3 chars) for Canada
     var fsa = q.replace(/\s/g, '').substring(0, 3).toUpperCase();
-    geocodeZippopotam('ca', fsa, callback, errorCallback);
+    geocodeZippopotam('ca', fsa, q, callback, errorCallback);
   } else if (isUKPostcode(q)) {
-    // Zippopotam uses outward code (part before space) for UK
     var parts = q.replace(/\s/g, '');
     var outward = parts.substring(0, parts.length - 3).toUpperCase();
-    geocodeZippopotam('gb', outward, callback, errorCallback);
+    geocodeZippopotam('gb', outward, q, callback, errorCallback);
   } else {
     geocodeOpenMeteo(q, callback, errorCallback);
   }

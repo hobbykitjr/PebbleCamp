@@ -255,7 +255,7 @@
       var unit = selUnit ? parseInt(selUnit.value) : 0;
       var sec = selSec ? parseInt(selSec.value) : 0;
       var result = {
-        zipCode: query.replace(/\s+/g, ''),
+        zipCode: /\d/.test(query) ? query.replace(/\s+/g, '') : query,
         displayMode: sun | (hilo << 1) | (sec << 2),
         showSec: sec,
         showSun: sun,
