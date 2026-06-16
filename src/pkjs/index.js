@@ -132,13 +132,15 @@ function wmoToSimple(wmo) {
 // ============================================================================
 // WEATHER + SUN + FORECAST (Open-Meteo combined call)
 // ============================================================================
-function fetchWeatherAndForecast(lat, lng, callback) {
+function fetchWeatherAndForecast(lat, lng, useCelsius, callback) {
+  var unitStr = useCelsius ? 'celsius' : 'fahrenheit';
+  console.log('Weather fetch: unit=' + unitStr + ' (useCelsius=' + useCelsius + ')');
   var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat +
             '&longitude=' + lng +
             '&current=temperature_2m,weather_code,wind_speed_10m' +
             '&daily=sunrise,sunset,temperature_2m_max,temperature_2m_min' +
             '&hourly=weather_code,temperature_2m' +
-            '&temperature_unit=' + (settings.useCelsius ? 'celsius' : 'fahrenheit') +
+            '&temperature_unit=' + unitStr +
             '&wind_speed_unit=mph' +
             '&timezone=auto' +
             '&forecast_days=2';
@@ -219,13 +221,15 @@ var fetchGeneration = 0;
 
 function fetchAllData() {
   var myGen = ++fetchGeneration;
-  console.log('Fetching data for: ' + settings.zipCode + ' (celsius=' + settings.useCelsius + ' gen=' + myGen + ')');
+  // Capture settings at call time so async callbacks use correct values
+  var useCelsius = settings.useCelsius;
+  console.log('Fetching data for: ' + settings.zipCode + ' (celsius=' + useCelsius + ' gen=' + myGen + ')');
   geocodeZip(settings.zipCode, function (lat, lng, placeName) {
     if (myGen !== fetchGeneration) { console.log('Fetch gen ' + myGen + ' superseded'); return; }
     // Geocoding succeeded — clear any previous error
     settings.locError = '';
     saveSettings();
-    fetchWeatherAndForecast(lat, lng, function (data) {
+    fetchWeatherAndForecast(lat, lng, useCelsius, function (data) {
       if (!data) return;
       if (myGen !== fetchGeneration) { console.log('Fetch gen ' + myGen + ' superseded'); return; }
       var msg = {
@@ -318,7 +322,13 @@ Pebble.addEventListener('webviewclosed', function (e) {
 Pebble.addEventListener('ready', function () {
   console.log('PebbleKit JS ready');
   loadSettings();
-  fetchAllData();
+  // Delay fetch slightly to let webviewclosed fire first if config just closed
+  // (webviewclosed has the authoritative new settings)
+  setTimeout(function() {
+    // Re-load in case webviewclosed updated settings while we waited
+    loadSettings();
+    fetchAllData();
+  }, 500);
 });
 
 Pebble.addEventListener('appmessage', function (e) {
