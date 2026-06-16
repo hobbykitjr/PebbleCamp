@@ -62,8 +62,30 @@ function geocodeOpenMeteo(query, callback) {
       if (j.results && j.results.length > 0) {
         var r = j.results[0];
         callback(r.latitude, r.longitude, r.name);
+      } else {
+        // Open-Meteo didn't find it — try Nominatim (handles postal codes)
+        geocodeNominatim(query, callback);
       }
-    } catch (e) { console.log('Geocode error: ' + e); }
+    } catch (e) {
+      console.log('Geocode error: ' + e);
+      geocodeNominatim(query, callback);
+    }
+  }, function () { geocodeNominatim(query, callback); });
+}
+
+function geocodeNominatim(query, callback) {
+  var url = 'https://nominatim.openstreetmap.org/search?q=' +
+            encodeURIComponent(query) + '&format=json&limit=1';
+  xhrRequest(url, 'GET', function (resp) {
+    try {
+      var j = JSON.parse(resp);
+      if (j && j.length > 0) {
+        var name = j[0].display_name.split(',')[0];
+        callback(parseFloat(j[0].lat), parseFloat(j[0].lon), name);
+      } else {
+        console.log('Nominatim: no results for ' + query);
+      }
+    } catch (e) { console.log('Nominatim error: ' + e); }
   });
 }
 
