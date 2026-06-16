@@ -216,7 +216,7 @@ function fetchWeatherAndForecast(lat, lng, callback) {
 // DATA FETCH
 // ============================================================================
 function fetchAllData() {
-  console.log('Fetching data for: ' + settings.zipCode);
+  console.log('Fetching data for: ' + settings.zipCode + ' (celsius=' + settings.useCelsius + ')');
   geocodeZip(settings.zipCode, function (lat, lng, placeName) {
     // Geocoding succeeded — clear any previous error
     settings.locError = '';
@@ -299,11 +299,10 @@ Pebble.addEventListener('webviewclosed', function (e) {
       if (config.useCelsius !== undefined) settings.useCelsius = parseInt(config.useCelsius);
       if (config.devMode !== undefined) settings.devMode = parseInt(config.devMode);
       saveSettings();
-      console.log('Settings updated: zip=' + settings.zipCode + ' mode=' + settings.displayMode);
+      console.log('Settings updated: zip=' + settings.zipCode + ' celsius=' + settings.useCelsius);
       Pebble.sendAppMessage({'DISPLAY_MODE': settings.displayMode, 'DEV_MODE': settings.devMode},
-        function() { console.log('Settings sent'); },
-        function() { console.log('Settings send failed'); });
-      fetchAllData();
+        function() { console.log('Settings sent, fetching weather'); fetchAllData(); },
+        function() { console.log('Settings send failed, fetching anyway'); fetchAllData(); });
     } catch (err) {
       console.log('Config parse error: ' + err);
     }
