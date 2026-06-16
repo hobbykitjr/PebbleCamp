@@ -14,7 +14,8 @@ var settings = {
   showHiLo: 1,
   showSec: 0,
   useCelsius: 0,
-  devMode: 0
+  devMode: 0,
+  locError: ''        // Empty = OK, otherwise error message
 };
 
 // ============================================================================
@@ -38,7 +39,7 @@ function xhrRequest(url, type, callback, errorCallback) {
 // ============================================================================
 function isUSZip(str) { return /^\d{5}(-\d{4})?$/.test(str.trim()); }
 
-function geocodeZip(zipCode, callback) {
+function geocodeZip(zipCode, callback, errorCallback) {
   if (isUSZip(zipCode)) {
     var url = 'https://api.zippopotam.us/us/' + zipCode.trim();
     xhrRequest(url, 'GET', function (resp) {
@@ -46,14 +47,14 @@ function geocodeZip(zipCode, callback) {
         var j = JSON.parse(resp);
         callback(parseFloat(j.places[0].latitude), parseFloat(j.places[0].longitude),
                  j.places[0]['place name'] + ', ' + j.places[0]['state abbreviation']);
-      } catch (e) { geocodeOpenMeteo(zipCode, callback); }
-    }, function () { geocodeOpenMeteo(zipCode, callback); });
+      } catch (e) { geocodeOpenMeteo(zipCode, callback, errorCallback); }
+    }, function () { geocodeOpenMeteo(zipCode, callback, errorCallback); });
   } else {
-    geocodeOpenMeteo(zipCode, callback);
+    geocodeOpenMeteo(zipCode, callback, errorCallback);
   }
 }
 
-function geocodeOpenMeteo(query, callback) {
+function geocodeOpenMeteo(query, callback, errorCallback) {
   var url = 'https://geocoding-api.open-meteo.com/v1/search?name=' +
             encodeURIComponent(query) + '&count=1&language=en&format=json';
   xhrRequest(url, 'GET', function (resp) {
@@ -64,16 +65,16 @@ function geocodeOpenMeteo(query, callback) {
         callback(r.latitude, r.longitude, r.name);
       } else {
         // Open-Meteo didn't find it — try Nominatim (handles postal codes)
-        geocodeNominatim(query, callback);
+        geocodeNominatim(query, callback, errorCallback);
       }
     } catch (e) {
       console.log('Geocode error: ' + e);
-      geocodeNominatim(query, callback);
+      geocodeNominatim(query, callback, errorCallback);
     }
-  }, function () { geocodeNominatim(query, callback); });
+  }, function () { geocodeNominatim(query, callback, errorCallback); });
 }
 
-function geocodeNominatim(query, callback) {
+function geocodeNominatim(query, callback, errorCallback) {
   var url = 'https://nominatim.openstreetmap.org/search?q=' +
             encodeURIComponent(query) + '&format=json&limit=1';
   xhrRequest(url, 'GET', function (resp) {
@@ -84,8 +85,14 @@ function geocodeNominatim(query, callback) {
         callback(parseFloat(j[0].lat), parseFloat(j[0].lon), name);
       } else {
         console.log('Nominatim: no results for ' + query);
+        if (errorCallback) errorCallback('Location "' + query + '" not found');
       }
-    } catch (e) { console.log('Nominatim error: ' + e); }
+    } catch (e) {
+      console.log('Nominatim error: ' + e);
+      if (errorCallback) errorCallback('Location lookup failed');
+    }
+  }, function () {
+    if (errorCallback) errorCallback('Location lookup failed (network error)');
   });
 }
 
@@ -193,6 +200,9 @@ function fetchWeatherAndForecast(lat, lng, callback) {
 function fetchAllData() {
   console.log('Fetching data for: ' + settings.zipCode);
   geocodeZip(settings.zipCode, function (lat, lng, placeName) {
+    // Geocoding succeeded — clear any previous error
+    settings.locError = '';
+    saveSettings();
     fetchWeatherAndForecast(lat, lng, function (data) {
       if (!data) return;
       var msg = {
@@ -213,6 +223,11 @@ function fetchAllData() {
         function () { console.log('Data sent'); },
         function () { console.log('Send failed'); });
     });
+  }, function (errMsg) {
+    // Geocoding failed — save error for config page to show
+    console.log('Geocode failed: ' + errMsg);
+    settings.locError = errMsg;
+    saveSettings();
   });
 }
 
@@ -231,6 +246,7 @@ function loadSettings() {
       if (p.showSec !== undefined) settings.showSec = p.showSec;
       if (p.useCelsius !== undefined) settings.useCelsius = p.useCelsius;
       if (p.devMode !== undefined) settings.devMode = p.devMode;
+      if (p.locError !== undefined) settings.locError = p.locError;
     }
   } catch (e) {}
 }
@@ -245,7 +261,8 @@ Pebble.addEventListener('showConfiguration', function () {
     '&sun=' + (settings.showSun !== undefined ? settings.showSun : 1) +
     '&hilo=' + (settings.showHiLo !== undefined ? settings.showHiLo : 1) +
     '&sec=' + (settings.showSec !== undefined ? settings.showSec : 0) +
-    '&dev=' + settings.devMode;
+    '&dev=' + settings.devMode +
+    '&locError=' + encodeURIComponent(settings.locError || '');
   console.log('Opening config: ' + url);
   Pebble.openURL(url);
 });

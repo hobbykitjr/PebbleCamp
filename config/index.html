@@ -132,6 +132,14 @@
     var zipField = document.getElementById('zipCode');
     zipField.value = getParam('zip') || '';
 
+    // Show location error from last fetch attempt
+    var locErr = getParam('locError');
+    if (locErr) {
+      var errEl = document.getElementById('locError');
+      errEl.textContent = locErr;
+      errEl.style.display = 'block';
+    }
+
     var tempUnit = getParam('unit') || '0';
     document.getElementById(tempUnit === '1' ? 'tempC' : 'tempF').checked = true;
 

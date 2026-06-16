@@ -705,12 +705,16 @@ static void draw_hud(GContext *ctx, GRect b) {
   // Temp + weather (top) — use peek data when peeking
   int show_temp = (s_peek>=0) ? s_d.pk_t[s_peek] : s_d.temp;
   int show_wx   = (s_peek>=0) ? s_d.pk_wx[s_peek] : s_d.wx;
-  snprintf(s_tmp,sizeof(s_tmp),"%d°",show_temp);
   int temp_y=26;
-  if(show_wx!=WX_CLEAR){
+  if(!s_d.valid) {
+    snprintf(s_tmp,sizeof(s_tmp),"?°");
+    txt(ctx,s_tmp,f24,GRect(0,temp_y,w,28),GTextAlignmentCenter);
+  } else if(show_wx!=WX_CLEAR){
+    snprintf(s_tmp,sizeof(s_tmp),"%d°",show_temp);
     txt(ctx,s_tmp,f24,GRect(w/2-48,temp_y,48,28),GTextAlignmentRight);
     draw_wx(ctx,w/2+16,temp_y+18,show_wx);
   } else {
+    snprintf(s_tmp,sizeof(s_tmp),"%d°",show_temp);
     txt(ctx,s_tmp,f24,GRect(0,temp_y,w,28),GTextAlignmentCenter);
   }
 
@@ -782,7 +786,7 @@ static void anim_cb(void *data){
   s_anim_ms+=ANIM_INTERVAL;
   if(s_canvas) layer_mark_dirty(s_canvas);
 
-  bool indev=(s_dev||!s_d.valid)&&s_pre>=0;
+  bool indev=s_dev&&s_pre>=0;
   bool stop=indev?false:(s_anim_ms>=ANIM_DURATION);
   // At night, keep animating for campfire
   if(is_night()) stop=false;
@@ -803,7 +807,7 @@ static void start_anim(void){
 // EVENTS
 // ============================================================================
 static void tick_cb(struct tm *t, TimeUnits u){
-  if((s_dev||!s_d.valid)&&s_pre>=0){
+  if(s_dev&&s_pre>=0){
     if(!s_anim || !s_timer) start_anim();
     else if(s_canvas) layer_mark_dirty(s_canvas);
     return;
@@ -837,7 +841,7 @@ static void peek_revert_cb(void *data){
 static void touch_cb(const TouchEvent *event, void *context){
   (void)context;
   if(event->type != TouchEvent_Touchdown) return;
-  if(s_dev||!s_d.valid){
+  if(s_dev){
     s_pre++; if(s_pre>=NUM_PRESETS) s_pre=0;
     apply_pre(s_pre);
     APP_LOG(APP_LOG_LEVEL_INFO,"DEV %d",s_pre);
@@ -974,7 +978,7 @@ static void win_load(Window *w){
   s_bat=battery_state_service_peek().charge_percent;
   s_bt=connection_service_peek_pebble_app_connection();
   upd_time();
-  if(!s_d.valid){s_pre=0;apply_pre(0);}
+  if(!s_d.valid && s_dev){s_pre=0;apply_pre(0);}
   start_anim();
 }
 static void win_unload(Window *w){
