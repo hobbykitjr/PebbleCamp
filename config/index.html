@@ -244,39 +244,28 @@
     }
 
     document.getElementById('saveBtn').addEventListener('click', function () {
-      var btn = document.getElementById('saveBtn');
-      btn.textContent = 'Verifying location...';
-      btn.disabled = true;
-
       var query = zipField.value.trim() || '17948';
-
-      validateLocation(query, function() {
-        // Success — save and close
-        var selUnit = document.querySelector('input[name="tempUnit"]:checked');
-        var selSun = document.querySelector('input[name="showSun"]:checked');
-        var selHiLo = document.querySelector('input[name="showHiLo"]:checked');
-        var selectedDev = document.querySelector('input[name="devMode"]:checked');
-        var selSec = document.querySelector('input[name="showSec"]:checked');
-        var sun = selSun ? parseInt(selSun.value) : 1;
-        var hilo = selHiLo ? parseInt(selHiLo.value) : 1;
-        var unit = selUnit ? parseInt(selUnit.value) : 0;
-        var sec = selSec ? parseInt(selSec.value) : 0;
-        var result = {
-          zipCode: query.replace(/\s+/g, ''),
-          displayMode: sun | (hilo << 1) | (sec << 2),
-          showSec: sec,
-          showSun: sun,
-          showHiLo: hilo,
-          useCelsius: unit,
-          devMode: selectedDev ? selectedDev.value : '0'
-        };
-        returnResult(JSON.stringify(result));
-      }, function(errMsg) {
-        // Error — show message, don't close
-        showResult(document.getElementById('locError'), errMsg);
-        btn.textContent = 'Save Settings';
-        btn.disabled = false;
-      });
+      var selUnit = document.querySelector('input[name="tempUnit"]:checked');
+      var selSun = document.querySelector('input[name="showSun"]:checked');
+      var selHiLo = document.querySelector('input[name="showHiLo"]:checked');
+      var selectedDev = document.querySelector('input[name="devMode"]:checked');
+      var selSec = document.querySelector('input[name="showSec"]:checked');
+      var sun = selSun ? parseInt(selSun.value) : 1;
+      var hilo = selHiLo ? parseInt(selHiLo.value) : 1;
+      var unit = selUnit ? parseInt(selUnit.value) : 0;
+      var sec = selSec ? parseInt(selSec.value) : 0;
+      var result = {
+        zipCode: query.replace(/\s+/g, ''),
+        displayMode: sun | (hilo << 1) | (sec << 2),
+        showSec: sec,
+        showSun: sun,
+        showHiLo: hilo,
+        useCelsius: unit,
+        devMode: selectedDev ? selectedDev.value : '0'
+      };
+      console.log('CONFIG SAVE: unit=' + unit + ' selUnit=' + (selUnit ? selUnit.id + '=' + selUnit.value : 'NULL') + ' zip=' + result.zipCode);
+      document.title = 'SAVE: celsius=' + unit + ' zip=' + result.zipCode;
+      returnResult(JSON.stringify(result));
     });
 
     document.getElementById('cancelBtn').addEventListener('click', function () {

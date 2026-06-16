@@ -137,7 +137,7 @@ function wmoToSimple(wmo) {
 // ============================================================================
 function fetchWeatherAndForecast(lat, lng, useCelsius, callback) {
   var unitStr = useCelsius ? 'celsius' : 'fahrenheit';
-  console.log('Weather fetch: unit=' + unitStr + ' (useCelsius=' + useCelsius + ')');
+  console.log('API CALL: unit=' + unitStr + ' useCelsius=' + useCelsius + ' (type=' + typeof useCelsius + ') lat=' + lat);
   var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat +
             '&longitude=' + lng +
             '&current=temperature_2m,weather_code,wind_speed_10m' +
@@ -322,7 +322,8 @@ Pebble.addEventListener('webviewclosed', function (e) {
       var decoded;
       try { decoded = decodeURIComponent(rawResponse); } catch(de) { decoded = rawResponse; }
       var config = JSON.parse(decoded);
-      console.log('Config parsed OK: celsius=' + config.useCelsius + ' zip=' + config.zipCode);
+      console.log('Raw response: ' + rawResponse.substring(0, 80));
+      console.log('Config parsed OK: celsius=' + config.useCelsius + ' (type=' + typeof config.useCelsius + ') zip=' + config.zipCode);
       if (config.zipCode) settings.zipCode = config.zipCode;
       if (config.displayMode !== undefined) settings.displayMode = parseInt(config.displayMode);
       if (config.showSun !== undefined) settings.showSun = parseInt(config.showSun);
@@ -331,7 +332,7 @@ Pebble.addEventListener('webviewclosed', function (e) {
       if (config.useCelsius !== undefined) settings.useCelsius = parseInt(config.useCelsius);
       if (config.devMode !== undefined) settings.devMode = parseInt(config.devMode);
       saveSettings();
-      console.log('Settings updated: zip=' + settings.zipCode + ' celsius=' + settings.useCelsius);
+      console.log('Settings SAVED: zip=' + settings.zipCode + ' celsius=' + settings.useCelsius + ' displayMode=' + settings.displayMode);
       Pebble.sendAppMessage({'DISPLAY_MODE': settings.displayMode, 'DEV_MODE': settings.devMode},
         function() { console.log('Settings sent, fetching weather'); fetchAllData(); },
         function() { console.log('Settings send failed, fetching anyway'); fetchAllData(); });
