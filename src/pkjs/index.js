@@ -318,7 +318,11 @@ Pebble.addEventListener('webviewclosed', function (e) {
     try {
       var rawResponse = e.response;
       if (rawResponse.indexOf('response=') === 0) rawResponse = rawResponse.substring(9);
-      var config = JSON.parse(decodeURIComponent(rawResponse));
+      // Try decoding; if already decoded, try parsing directly
+      var decoded;
+      try { decoded = decodeURIComponent(rawResponse); } catch(de) { decoded = rawResponse; }
+      var config = JSON.parse(decoded);
+      console.log('Config parsed OK: celsius=' + config.useCelsius + ' zip=' + config.zipCode);
       if (config.zipCode) settings.zipCode = config.zipCode;
       if (config.displayMode !== undefined) settings.displayMode = parseInt(config.displayMode);
       if (config.showSun !== undefined) settings.showSun = parseInt(config.showSun);
