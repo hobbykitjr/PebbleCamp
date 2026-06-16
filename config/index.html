@@ -64,6 +64,8 @@
     <label for="zipCode">ZIP Code or City</label>
     <input type="text" id="zipCode" placeholder="e.g. 17948" maxlength="30">
     <p class="hint">ZIP/postal code or city name for weather data</p>
+    <p class="error" id="locError" style="display:none; color:#ff6666; font-size:13px; margin-top:4px;"></p>
+    <p class="success" id="locSuccess" style="display:none; color:#7bc67b; font-size:13px; margin-top:4px;"></p>
   </div>
 
   <div class="card">
@@ -160,26 +162,115 @@
       else document.location = 'pebblejs://close';
     }
 
-    document.getElementById('saveBtn').addEventListener('click', function () {
-      var selUnit = document.querySelector('input[name="tempUnit"]:checked');
-      var selSun = document.querySelector('input[name="showSun"]:checked');
-      var selHiLo = document.querySelector('input[name="showHiLo"]:checked');
-      var selectedDev = document.querySelector('input[name="devMode"]:checked');
-      var selSec = document.querySelector('input[name="showSec"]:checked');
-      var sun = selSun ? parseInt(selSun.value) : 1;
-      var hilo = selHiLo ? parseInt(selHiLo.value) : 1;
-      var unit = selUnit ? parseInt(selUnit.value) : 0;
-      var sec = selSec ? parseInt(selSec.value) : 0;
-      var result = {
-        zipCode: zipField.value.trim() || '17948',
-        displayMode: sun | (hilo << 1) | (sec << 2),
-        showSec: sec,
-        showSun: sun,
-        showHiLo: hilo,
-        useCelsius: unit,
-        devMode: selectedDev ? selectedDev.value : '0'
+    function isUSZip(str) { return /^\d{5}(-\d{4})?$/.test(str.trim()); }
+
+    function validateLocation(query, onSuccess, onError) {
+      var errEl = document.getElementById('locError');
+      var succEl = document.getElementById('locSuccess');
+      errEl.style.display = 'none';
+      succEl.style.display = 'none';
+
+      if (!query) { onSuccess(); return; }
+
+      // Try US ZIP first
+      if (isUSZip(query)) {
+        var url = 'https://api.zippopotam.us/us/' + query.trim();
+        var xhr = new XMLHttpRequest();
+        xhr.onload = function() {
+          if (xhr.status === 200) {
+            try {
+              var j = JSON.parse(xhr.responseText);
+              succEl.textContent = 'Found: ' + j.places[0]['place name'] + ', ' + j.places[0]['state abbreviation'];
+              succEl.style.display = 'block';
+            } catch(e) {}
+            onSuccess();
+          } else { onError('ZIP code not found'); }
+        };
+        xhr.onerror = function() { onError('Could not verify ZIP code'); };
+        xhr.open('GET', url);
+        xhr.send();
+        return;
+      }
+
+      // Try Open-Meteo name search
+      var url = 'https://geocoding-api.open-meteo.com/v1/search?name=' +
+                encodeURIComponent(query) + '&count=1&language=en&format=json';
+      var xhr = new XMLHttpRequest();
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          try {
+            var j = JSON.parse(xhr.responseText);
+            if (j.results && j.results.length > 0) {
+              succEl.textContent = 'Found: ' + j.results[0].name + (j.results[0].country ? ', ' + j.results[0].country : '');
+              succEl.style.display = 'block';
+              onSuccess();
+              return;
+            }
+          } catch(e) {}
+        }
+        // Fallback: try Nominatim
+        var url2 = 'https://nominatim.openstreetmap.org/search?q=' +
+                   encodeURIComponent(query) + '&format=json&limit=1';
+        var xhr2 = new XMLHttpRequest();
+        xhr2.onload = function() {
+          if (xhr2.status === 200) {
+            try {
+              var j2 = JSON.parse(xhr2.responseText);
+              if (j2 && j2.length > 0) {
+                succEl.textContent = 'Found: ' + j2[0].display_name.split(',').slice(0,2).join(',');
+                succEl.style.display = 'block';
+                onSuccess();
+                return;
+              }
+            } catch(e) {}
+          }
+          onError('Location not found. Try a city name or check the postal code.');
+        };
+        xhr2.onerror = function() { onError('Could not verify location (network error)'); };
+        xhr2.open('GET', url2);
+        xhr2.send();
       };
-      returnResult(JSON.stringify(result));
+      xhr.onerror = function() { onError('Could not verify location (network error)'); };
+      xhr.open('GET', url);
+      xhr.send();
+    }
+
+    document.getElementById('saveBtn').addEventListener('click', function () {
+      var btn = document.getElementById('saveBtn');
+      btn.textContent = 'Verifying location...';
+      btn.disabled = true;
+
+      var query = zipField.value.trim() || '17948';
+
+      validateLocation(query, function() {
+        // Success — save and close
+        var selUnit = document.querySelector('input[name="tempUnit"]:checked');
+        var selSun = document.querySelector('input[name="showSun"]:checked');
+        var selHiLo = document.querySelector('input[name="showHiLo"]:checked');
+        var selectedDev = document.querySelector('input[name="devMode"]:checked');
+        var selSec = document.querySelector('input[name="showSec"]:checked');
+        var sun = selSun ? parseInt(selSun.value) : 1;
+        var hilo = selHiLo ? parseInt(selHiLo.value) : 1;
+        var unit = selUnit ? parseInt(selUnit.value) : 0;
+        var sec = selSec ? parseInt(selSec.value) : 0;
+        var result = {
+          zipCode: query,
+          displayMode: sun | (hilo << 1) | (sec << 2),
+          showSec: sec,
+          showSun: sun,
+          showHiLo: hilo,
+          useCelsius: unit,
+          devMode: selectedDev ? selectedDev.value : '0'
+        };
+        returnResult(JSON.stringify(result));
+      }, function(errMsg) {
+        // Error — show message, don't close
+        var errEl = document.getElementById('locError');
+        errEl.textContent = errMsg;
+        errEl.style.display = 'block';
+        btn.textContent = 'Save Settings';
+        btn.disabled = false;
+      });
     });
 
     document.getElementById('cancelBtn').addEventListener('click', function () {
