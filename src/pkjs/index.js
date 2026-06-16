@@ -15,7 +15,10 @@ var settings = {
   showSec: 0,
   useCelsius: 0,
   devMode: 0,
-  locError: ''        // Empty = OK, otherwise error message
+  locError: '',       // Empty = OK, otherwise error message
+  lastLat: 0,        // Last successfully geocoded coordinates
+  lastLng: 0,
+  lastPlace: ''
 };
 
 // ============================================================================
@@ -219,6 +222,30 @@ function fetchWeatherAndForecast(lat, lng, useCelsius, callback) {
 // ============================================================================
 var fetchGeneration = 0;
 
+function sendWeather(lat, lng, placeName, useCelsius, myGen) {
+  fetchWeatherAndForecast(lat, lng, useCelsius, function (data) {
+    if (!data) return;
+    if (myGen !== fetchGeneration) { console.log('Fetch gen ' + myGen + ' superseded'); return; }
+    var msg = {
+      'SUNRISE_HOUR': data.sunriseHour,
+      'SUNRISE_MIN': data.sunriseMin,
+      'SUNSET_HOUR': data.sunsetHour,
+      'SUNSET_MIN': data.sunsetMin,
+      'TEMPERATURE': data.temperature,
+      'WEATHER_CODE': data.weatherCode,
+      'TEMP_HIGH': data.tempHigh,
+      'TEMP_LOW': data.tempLow,
+      'TOWN_NAME': placeName || '',
+      'PEEK_WX1': data.peeks[0].wx,  'PEEK_T1': data.peeks[0].temp,  'PEEK_H1': data.peeks[0].hour,
+      'PEEK_WX2': data.peeks[1].wx,  'PEEK_T2': data.peeks[1].temp,  'PEEK_H2': data.peeks[1].hour,
+      'PEEK_WX3': data.peeks[2].wx,  'PEEK_T3': data.peeks[2].temp,  'PEEK_H3': data.peeks[2].hour
+    };
+    Pebble.sendAppMessage(msg,
+      function () { console.log('Data sent (gen ' + myGen + ')'); },
+      function () { console.log('Send failed (gen ' + myGen + ')'); });
+  });
+}
+
 function fetchAllData() {
   var myGen = ++fetchGeneration;
   // Capture settings at call time so async callbacks use correct values
@@ -226,36 +253,24 @@ function fetchAllData() {
   console.log('Fetching data for: ' + settings.zipCode + ' (celsius=' + useCelsius + ' gen=' + myGen + ')');
   geocodeZip(settings.zipCode, function (lat, lng, placeName) {
     if (myGen !== fetchGeneration) { console.log('Fetch gen ' + myGen + ' superseded'); return; }
-    // Geocoding succeeded — clear any previous error
+    // Geocoding succeeded — cache coordinates and clear error
+    settings.lastLat = lat;
+    settings.lastLng = lng;
+    settings.lastPlace = placeName;
     settings.locError = '';
     saveSettings();
-    fetchWeatherAndForecast(lat, lng, useCelsius, function (data) {
-      if (!data) return;
-      if (myGen !== fetchGeneration) { console.log('Fetch gen ' + myGen + ' superseded'); return; }
-      var msg = {
-        'SUNRISE_HOUR': data.sunriseHour,
-        'SUNRISE_MIN': data.sunriseMin,
-        'SUNSET_HOUR': data.sunsetHour,
-        'SUNSET_MIN': data.sunsetMin,
-        'TEMPERATURE': data.temperature,
-        'WEATHER_CODE': data.weatherCode,
-        'TEMP_HIGH': data.tempHigh,
-        'TEMP_LOW': data.tempLow,
-        'TOWN_NAME': placeName || '',
-        'PEEK_WX1': data.peeks[0].wx,  'PEEK_T1': data.peeks[0].temp,  'PEEK_H1': data.peeks[0].hour,
-        'PEEK_WX2': data.peeks[1].wx,  'PEEK_T2': data.peeks[1].temp,  'PEEK_H2': data.peeks[1].hour,
-        'PEEK_WX3': data.peeks[2].wx,  'PEEK_T3': data.peeks[2].temp,  'PEEK_H3': data.peeks[2].hour
-      };
-      Pebble.sendAppMessage(msg,
-        function () { console.log('Data sent (gen ' + myGen + ')'); },
-        function () { console.log('Send failed (gen ' + myGen + ')'); });
-    });
+    sendWeather(lat, lng, placeName, useCelsius, myGen);
   }, function (errMsg) {
     if (myGen !== fetchGeneration) return;
-    // Geocoding failed — save error for config page to show
-    console.log('Geocode failed: ' + errMsg);
-    settings.locError = errMsg;
-    saveSettings();
+    console.log('Geocode failed: ' + errMsg + ', using cached coords');
+    // Geocoding failed — but if we have cached coordinates, still fetch weather
+    // (this ensures unit changes take effect even if geocoding is flaky)
+    if (settings.lastLat && settings.lastLng) {
+      sendWeather(settings.lastLat, settings.lastLng, settings.lastPlace, useCelsius, myGen);
+    } else {
+      settings.locError = errMsg;
+      saveSettings();
+    }
   });
 }
 
@@ -275,6 +290,9 @@ function loadSettings() {
       if (p.useCelsius !== undefined) settings.useCelsius = p.useCelsius;
       if (p.devMode !== undefined) settings.devMode = p.devMode;
       if (p.locError !== undefined) settings.locError = p.locError;
+      if (p.lastLat !== undefined) settings.lastLat = p.lastLat;
+      if (p.lastLng !== undefined) settings.lastLng = p.lastLng;
+      if (p.lastPlace !== undefined) settings.lastPlace = p.lastPlace;
     }
   } catch (e) {}
 }
