@@ -64,8 +64,6 @@
     <label for="zipCode">ZIP Code or City</label>
     <input type="text" id="zipCode" placeholder="e.g. 17948" maxlength="30">
     <p class="hint">ZIP/postal code or city name for weather data</p>
-    <p class="error" id="locError" style="display:none; color:#ff6666; font-size:13px; margin-top:4px;"></p>
-    <p class="success" id="locSuccess" style="display:none; color:#7bc67b; font-size:13px; margin-top:4px;"></p>
   </div>
 
   <div class="card">
@@ -120,6 +118,8 @@
     <p class="hint">Tap to cycle through time/weather presets for testing.</p>
   </div>
 
+  <p class="error" id="locError" style="display:none; color:#ff6666; font-size:14px; padding:10px; background:#331111; border-radius:8px; margin:12px 0;"></p>
+  <p class="success" id="locSuccess" style="display:none; color:#7bc67b; font-size:14px; padding:10px; background:#113311; border-radius:8px; margin:12px 0;"></p>
   <button class="btn btn-save" id="saveBtn">Save Settings</button>
   <button class="btn btn-cancel" id="cancelBtn">Cancel</button>
 
@@ -138,6 +138,7 @@
       var errEl = document.getElementById('locError');
       errEl.textContent = locErr;
       errEl.style.display = 'block';
+      setTimeout(function() { errEl.scrollIntoView({behavior:'smooth'}); }, 300);
     }
 
     var tempUnit = getParam('unit') || '0';
@@ -171,6 +172,54 @@
     }
 
     function isUSZip(str) { return /^\d{5}(-\d{4})?$/.test(str.trim()); }
+    function isCanadianPostal(str) { return /^[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d$/.test(str.trim()); }
+    function isUKPostcode(str) { return /^[A-Za-z]{1,2}\d[A-Za-z\d]?\s?\d[A-Za-z]{2}$/.test(str.trim()); }
+
+    function showResult(el, msg) { el.textContent = msg; el.style.display = 'block'; el.scrollIntoView({behavior:'smooth'}); }
+
+    function tryZippopotam(country, code, query, onSuccess, onError) {
+      var url = 'https://api.zippopotam.us/' + country + '/' + code;
+      var xhr = new XMLHttpRequest();
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          try {
+            var j = JSON.parse(xhr.responseText);
+            if (j.places && j.places.length > 0) {
+              showResult(document.getElementById('locSuccess'),
+                'Found: ' + j.places[0]['place name'] + ', ' + j.places[0]['state abbreviation']);
+              onSuccess(); return;
+            }
+          } catch(e) {}
+        }
+        // Zippopotam failed, try name search
+        tryNameSearch(query, onSuccess, onError);
+      };
+      xhr.onerror = function() { tryNameSearch(query, onSuccess, onError); };
+      xhr.open('GET', url);
+      xhr.send();
+    }
+
+    function tryNameSearch(query, onSuccess, onError) {
+      var succEl = document.getElementById('locSuccess');
+      var url = 'https://geocoding-api.open-meteo.com/v1/search?name=' +
+                encodeURIComponent(query) + '&count=1&language=en&format=json';
+      var xhr = new XMLHttpRequest();
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          try {
+            var j = JSON.parse(xhr.responseText);
+            if (j.results && j.results.length > 0) {
+              showResult(succEl, 'Found: ' + j.results[0].name + (j.results[0].country ? ', ' + j.results[0].country : ''));
+              onSuccess(); return;
+            }
+          } catch(e) {}
+        }
+        onError('Location not found. Try a city name instead of a postal code.');
+      };
+      xhr.onerror = function() { onError('Could not verify location (network error)'); };
+      xhr.open('GET', url);
+      xhr.send();
+    }
 
     function validateLocation(query, onSuccess, onError) {
       var errEl = document.getElementById('locError');
@@ -180,67 +229,18 @@
 
       if (!query) { onSuccess(); return; }
 
-      // Try US ZIP first
       if (isUSZip(query)) {
-        var url = 'https://api.zippopotam.us/us/' + query.trim();
-        var xhr = new XMLHttpRequest();
-        xhr.onload = function() {
-          if (xhr.status === 200) {
-            try {
-              var j = JSON.parse(xhr.responseText);
-              succEl.textContent = 'Found: ' + j.places[0]['place name'] + ', ' + j.places[0]['state abbreviation'];
-              succEl.style.display = 'block';
-            } catch(e) {}
-            onSuccess();
-          } else { onError('ZIP code not found'); }
-        };
-        xhr.onerror = function() { onError('Could not verify ZIP code'); };
-        xhr.open('GET', url);
-        xhr.send();
-        return;
+        tryZippopotam('us', query.trim(), query, onSuccess, onError);
+      } else if (isCanadianPostal(query)) {
+        var fsa = query.replace(/\s/g, '').substring(0, 3).toUpperCase();
+        tryZippopotam('ca', fsa, query, onSuccess, onError);
+      } else if (isUKPostcode(query)) {
+        var clean = query.replace(/\s/g, '');
+        var outward = clean.substring(0, clean.length - 3).toUpperCase();
+        tryZippopotam('gb', outward, query, onSuccess, onError);
+      } else {
+        tryNameSearch(query, onSuccess, onError);
       }
-
-      // Try Open-Meteo name search
-      var url = 'https://geocoding-api.open-meteo.com/v1/search?name=' +
-                encodeURIComponent(query) + '&count=1&language=en&format=json';
-      var xhr = new XMLHttpRequest();
-      xhr.onload = function() {
-        if (xhr.status === 200) {
-          try {
-            var j = JSON.parse(xhr.responseText);
-            if (j.results && j.results.length > 0) {
-              succEl.textContent = 'Found: ' + j.results[0].name + (j.results[0].country ? ', ' + j.results[0].country : '');
-              succEl.style.display = 'block';
-              onSuccess();
-              return;
-            }
-          } catch(e) {}
-        }
-        // Fallback: try Nominatim
-        var url2 = 'https://nominatim.openstreetmap.org/search?q=' +
-                   encodeURIComponent(query) + '&format=json&limit=1';
-        var xhr2 = new XMLHttpRequest();
-        xhr2.onload = function() {
-          if (xhr2.status === 200) {
-            try {
-              var j2 = JSON.parse(xhr2.responseText);
-              if (j2 && j2.length > 0) {
-                succEl.textContent = 'Found: ' + j2[0].display_name.split(',').slice(0,2).join(',');
-                succEl.style.display = 'block';
-                onSuccess();
-                return;
-              }
-            } catch(e) {}
-          }
-          onError('Location not found. Try a city name or check the postal code.');
-        };
-        xhr2.onerror = function() { onError('Could not verify location (network error)'); };
-        xhr2.open('GET', url2);
-        xhr2.send();
-      };
-      xhr.onerror = function() { onError('Could not verify location (network error)'); };
-      xhr.open('GET', url);
-      xhr.send();
     }
 
     document.getElementById('saveBtn').addEventListener('click', function () {
@@ -273,9 +273,7 @@
         returnResult(JSON.stringify(result));
       }, function(errMsg) {
         // Error — show message, don't close
-        var errEl = document.getElementById('locError');
-        errEl.textContent = errMsg;
-        errEl.style.display = 'block';
+        showResult(document.getElementById('locError'), errMsg);
         btn.textContent = 'Save Settings';
         btn.disabled = false;
       });

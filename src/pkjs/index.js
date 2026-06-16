@@ -38,19 +38,37 @@ function xhrRequest(url, type, callback, errorCallback) {
 // GEOCODING
 // ============================================================================
 function isUSZip(str) { return /^\d{5}(-\d{4})?$/.test(str.trim()); }
+function isCanadianPostal(str) { return /^[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d$/.test(str.trim()); }
+function isUKPostcode(str) { return /^[A-Za-z]{1,2}\d[A-Za-z\d]?\s?\d[A-Za-z]{2}$/.test(str.trim()); }
 
-function geocodeZip(zipCode, callback, errorCallback) {
-  if (isUSZip(zipCode)) {
-    var url = 'https://api.zippopotam.us/us/' + zipCode.trim();
-    xhrRequest(url, 'GET', function (resp) {
-      try {
-        var j = JSON.parse(resp);
+function geocodeZippopotam(country, code, callback, errorCallback) {
+  var url = 'https://api.zippopotam.us/' + country + '/' + code;
+  xhrRequest(url, 'GET', function (resp) {
+    try {
+      var j = JSON.parse(resp);
+      if (j.places && j.places.length > 0) {
         callback(parseFloat(j.places[0].latitude), parseFloat(j.places[0].longitude),
                  j.places[0]['place name'] + ', ' + j.places[0]['state abbreviation']);
-      } catch (e) { geocodeOpenMeteo(zipCode, callback, errorCallback); }
-    }, function () { geocodeOpenMeteo(zipCode, callback, errorCallback); });
+      } else { geocodeOpenMeteo(code, callback, errorCallback); }
+    } catch (e) { geocodeOpenMeteo(code, callback, errorCallback); }
+  }, function () { geocodeOpenMeteo(code, callback, errorCallback); });
+}
+
+function geocodeZip(zipCode, callback, errorCallback) {
+  var q = zipCode.trim();
+  if (isUSZip(q)) {
+    geocodeZippopotam('us', q, callback, errorCallback);
+  } else if (isCanadianPostal(q)) {
+    // Zippopotam uses FSA (first 3 chars) for Canada
+    var fsa = q.replace(/\s/g, '').substring(0, 3).toUpperCase();
+    geocodeZippopotam('ca', fsa, callback, errorCallback);
+  } else if (isUKPostcode(q)) {
+    // Zippopotam uses outward code (part before space) for UK
+    var parts = q.replace(/\s/g, '');
+    var outward = parts.substring(0, parts.length - 3).toUpperCase();
+    geocodeZippopotam('gb', outward, callback, errorCallback);
   } else {
-    geocodeOpenMeteo(zipCode, callback, errorCallback);
+    geocodeOpenMeteo(q, callback, errorCallback);
   }
 }
 
