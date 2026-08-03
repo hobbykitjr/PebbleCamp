@@ -33,6 +33,7 @@
 #define P_SHOW_HILO  10
 #define P_DEV_MODE   11
 #define P_SHOW_SEC   12
+#define P_FONT_SIZE  13
 
 // Weather
 #define WX_CLEAR   0
@@ -130,6 +131,7 @@ static char s_tbuf[12],s_dbuf[16],s_sr[8],s_ss[8],s_tmp[8];
 static int s_hr=12, s_mn=0;
 static bool s_dev=false;
 static bool s_show_sun=true, s_show_hilo=true, s_show_sec=false;
+static int s_font_size=0;  // 0=normal, 1=large
 static int s_fire_frame=0;  // Animation frame counter
 static int s_peek=-1;       // Peek state: -1=normal, 0/1/2=peek slot
 static AppTimer *s_peek_timer=NULL;
@@ -696,26 +698,29 @@ static void draw_hud(GContext *ctx, GRect b) {
   GFont f18=fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
   GFont f14=fonts_get_system_font(FONT_KEY_GOTHIC_14);
   GFont f24=fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  // Bigger fonts for gabbro (260px)
-  bool big=L_W>=240;
-  GFont f_date=big?f18:f14;
+  GFont f28=fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
+  // Bigger fonts for gabbro (260px) or when font_size=large
+  bool big=L_W>=240 || s_font_size>=1;
+  GFont f_date=big?f24:f18;
   GFont f_info=big?f18:f14;
   int w=b.size.w;
 
   // Temp + weather (top) — use peek data when peeking
   int show_temp = (s_peek>=0) ? s_d.pk_t[s_peek] : s_d.temp;
   int show_wx   = (s_peek>=0) ? s_d.pk_wx[s_peek] : s_d.wx;
-  int temp_y=26;
+  GFont f_temp=big?f28:f24;
+  int temp_h=big?32:28;
+  int temp_y=big?22:26;
   if(!s_d.valid) {
     snprintf(s_tmp,sizeof(s_tmp),"?°");
-    txt(ctx,s_tmp,f24,GRect(0,temp_y,w,28),GTextAlignmentCenter);
+    txt(ctx,s_tmp,f_temp,GRect(0,temp_y,w,temp_h),GTextAlignmentCenter);
   } else if(show_wx!=WX_CLEAR){
     snprintf(s_tmp,sizeof(s_tmp),"%d°",show_temp);
-    txt(ctx,s_tmp,f24,GRect(w/2-48,temp_y,48,28),GTextAlignmentRight);
+    txt(ctx,s_tmp,f_temp,GRect(w/2-48,temp_y,48,temp_h),GTextAlignmentRight);
     draw_wx(ctx,w/2+16,temp_y+18,show_wx);
   } else {
     snprintf(s_tmp,sizeof(s_tmp),"%d°",show_temp);
-    txt(ctx,s_tmp,f24,GRect(0,temp_y,w,28),GTextAlignmentCenter);
+    txt(ctx,s_tmp,f_temp,GRect(0,temp_y,w,temp_h),GTextAlignmentCenter);
   }
 
   // Time
@@ -912,6 +917,8 @@ static void inbox_cb(DictionaryIterator *it, void *c){
     tick_timer_service_subscribe(s_show_sec?SECOND_UNIT:MINUTE_UNIT,tick_cb);
     APP_LOG(APP_LOG_LEVEL_INFO,"Config: sun=%d hilo=%d sec=%d",s_show_sun,s_show_hilo,s_show_sec);
   }
+  t=dict_find(it,MESSAGE_KEY_FONT_SIZE);
+  if(t) { s_font_size=(int)t->value->int32; persist_write_int(P_FONT_SIZE,s_font_size); }
   t=dict_find(it,MESSAGE_KEY_TOWN_NAME);
   if(t) snprintf(s_d.town,sizeof(s_d.town),"%s",t->value->cstring);
 
@@ -963,6 +970,7 @@ static void load_data(void){
   if(persist_exists(P_SHOW_HILO)) s_show_hilo=persist_read_bool(P_SHOW_HILO);
   if(persist_exists(P_SHOW_SEC)) s_show_sec=persist_read_bool(P_SHOW_SEC);
   if(persist_exists(P_DEV_MODE)) s_dev=persist_read_bool(P_DEV_MODE);
+  if(persist_exists(P_FONT_SIZE)) s_font_size=persist_read_int(P_FONT_SIZE);
 }
 
 // ============================================================================

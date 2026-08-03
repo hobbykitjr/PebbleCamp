@@ -15,6 +15,7 @@ var settings = {
   showSec: 0,
   useCelsius: 0,
   devMode: 0,
+  fontSize: 0,        // 0=normal, 1=large
   locError: '',       // Empty = OK, otherwise error message
   lastLat: 0,        // Last successfully geocoded coordinates
   lastLng: 0,
@@ -296,6 +297,7 @@ function loadSettings() {
       if (p.showSec !== undefined) settings.showSec = p.showSec;
       if (p.useCelsius !== undefined) settings.useCelsius = p.useCelsius;
       if (p.devMode !== undefined) settings.devMode = p.devMode;
+      if (p.fontSize !== undefined) settings.fontSize = p.fontSize;
       if (p.locError !== undefined) settings.locError = p.locError;
       if (p.lastLat !== undefined) settings.lastLat = p.lastLat;
       if (p.lastLng !== undefined) settings.lastLng = p.lastLng;
@@ -315,6 +317,7 @@ Pebble.addEventListener('showConfiguration', function () {
     '&hilo=' + (settings.showHiLo !== undefined ? settings.showHiLo : 1) +
     '&sec=' + (settings.showSec !== undefined ? settings.showSec : 0) +
     '&dev=' + settings.devMode +
+    '&font=' + (settings.fontSize || 0) +
     '&locError=' + encodeURIComponent(settings.locError || '');
   console.log('Opening config: ' + url);
   Pebble.openURL(url);
@@ -338,9 +341,10 @@ Pebble.addEventListener('webviewclosed', function (e) {
       if (config.showSec !== undefined) settings.showSec = parseInt(config.showSec);
       if (config.useCelsius !== undefined) settings.useCelsius = parseInt(config.useCelsius);
       if (config.devMode !== undefined) settings.devMode = parseInt(config.devMode);
+      if (config.fontSize !== undefined) settings.fontSize = parseInt(config.fontSize);
       saveSettings();
-      console.log('Settings SAVED: zip=' + settings.zipCode + ' celsius=' + settings.useCelsius + ' displayMode=' + settings.displayMode);
-      Pebble.sendAppMessage({'DISPLAY_MODE': settings.displayMode, 'DEV_MODE': settings.devMode},
+      console.log('Settings SAVED: zip=' + settings.zipCode + ' celsius=' + settings.useCelsius + ' displayMode=' + settings.displayMode + ' fontSize=' + settings.fontSize);
+      Pebble.sendAppMessage({'DISPLAY_MODE': settings.displayMode, 'DEV_MODE': settings.devMode, 'FONT_SIZE': settings.fontSize},
         function() { console.log('Settings sent, fetching weather'); fetchAllData(); },
         function() { console.log('Settings send failed, fetching anyway'); fetchAllData(); });
     } catch (err) {

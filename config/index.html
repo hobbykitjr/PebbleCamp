@@ -97,6 +97,17 @@
   </div>
 
   <div class="card">
+    <h2>Font Size</h2>
+    <div class="toggle-group">
+      <input type="radio" name="fontSize" id="fontNormal" value="0">
+      <label for="fontNormal">Normal</label>
+      <input type="radio" name="fontSize" id="fontLarge" value="1">
+      <label for="fontLarge">Large</label>
+    </div>
+    <p class="hint">Larger text for temperature, date, and info.</p>
+  </div>
+
+  <div class="card">
     <h2>Show Seconds</h2>
     <div class="toggle-group">
       <input type="radio" name="showSec" id="secOff" value="0">
@@ -148,6 +159,9 @@
     document.getElementById(showSun === '1' ? 'sunOn' : 'sunOff').checked = true;
     var showHiLo = getParam('hilo') || '1';
     document.getElementById(showHiLo === '1' ? 'hiloOn' : 'hiloOff').checked = true;
+
+    var fontSize = getParam('font') || '0';
+    document.getElementById(fontSize === '1' ? 'fontLarge' : 'fontNormal').checked = true;
 
     var showSec = getParam('sec') || '0';
     document.getElementById(showSec === '1' ? 'secOn' : 'secOff').checked = true;
@@ -250,10 +264,12 @@
       var selHiLo = document.querySelector('input[name="showHiLo"]:checked');
       var selectedDev = document.querySelector('input[name="devMode"]:checked');
       var selSec = document.querySelector('input[name="showSec"]:checked');
+      var selFont = document.querySelector('input[name="fontSize"]:checked');
       var sun = selSun ? parseInt(selSun.value) : 1;
       var hilo = selHiLo ? parseInt(selHiLo.value) : 1;
       var unit = selUnit ? parseInt(selUnit.value) : 0;
       var sec = selSec ? parseInt(selSec.value) : 0;
+      var font = selFont ? parseInt(selFont.value) : 0;
       var result = {
         zipCode: /\d/.test(query) ? query.replace(/\s+/g, '') : query,
         displayMode: sun | (hilo << 1) | (sec << 2),
@@ -261,6 +277,7 @@
         showSun: sun,
         showHiLo: hilo,
         useCelsius: unit,
+        fontSize: font,
         devMode: selectedDev ? selectedDev.value : '0'
       };
       console.log('CONFIG SAVE: unit=' + unit + ' selUnit=' + (selUnit ? selUnit.id + '=' + selUnit.value : 'NULL') + ' zip=' + result.zipCode);

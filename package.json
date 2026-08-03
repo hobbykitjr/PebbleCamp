@@ -17,6 +17,7 @@
             "DISPLAY_MODE": 9,
             "PEEK_H1": 14,
             "PEEK_H2": 17,
+            "FONT_SIZE": 21,
             "PEEK_H3": 20,
             "PEEK_T1": 13,
             "PEEK_T2": 16,
