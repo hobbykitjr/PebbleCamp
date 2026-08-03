@@ -730,20 +730,21 @@ static void draw_hud(GContext *ctx, GRect b) {
   GFont f_time = (s_show_sec && !big_screen && !large) ? f28 : f42;
   txt(ctx,s_tbuf,f_time,GRect(0,ty,w,50),GTextAlignmentCenter);
 
-  // Date — push down more when large to avoid overlap
-  int date_y=large?(ty+50):(ty+44);
-  int date_h=large?32:22;
-  txt(ctx,s_dbuf,f_date,GRect(0,date_y,w,date_h),GTextAlignmentCenter);
-
-  // Sunrise/sunset times (same line as date)
+  // Sunrise/sunset times — above date when large
+  int sun_y=large?(ty+45):(ty+44);
   if(s_show_sun) {
     snprintf(s_sr,sizeof(s_sr),"%d:%02d",fmt_h(s_d.sr_h),s_d.sr_m);
     snprintf(s_ss,sizeof(s_ss),"%d:%02d",fmt_h(s_d.ss_h),s_d.ss_m);
-    int sun_y=date_y;
     int sx=big_screen?20:14;
-    txt(ctx,s_sr,f_info,GRect(sx,sun_y,60,date_h),GTextAlignmentLeft);
-    txt(ctx,s_ss,f_info,GRect(w-sx-60,sun_y,60,date_h),GTextAlignmentRight);
+    int sun_h=large?28:22;
+    txt(ctx,s_sr,f_info,GRect(sx,sun_y,60,sun_h),GTextAlignmentLeft);
+    txt(ctx,s_ss,f_info,GRect(w-sx-60,sun_y,60,sun_h),GTextAlignmentRight);
   }
+
+  // Date — below sunrise/sunset when large
+  int date_y=large?(sun_y+28):(ty+44);
+  int date_h=large?32:22;
+  txt(ctx,s_dbuf,f_date,GRect(0,date_y,w,date_h),GTextAlignmentCenter);
 
   // Hi/Lo temps
   if(s_show_hilo && s_d.valid) {
