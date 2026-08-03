@@ -699,18 +699,20 @@ static void draw_hud(GContext *ctx, GRect b) {
   GFont f14=fonts_get_system_font(FONT_KEY_GOTHIC_14);
   GFont f24=fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   GFont f28=fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
-  // Bigger fonts for gabbro (260px) or when font_size=large
-  bool big=L_W>=240 || s_font_size>=1;
-  GFont f_date=big?f24:f18;
-  GFont f_info=big?f18:f14;
+  bool big_screen=L_W>=240;
+  bool large=s_font_size>=1;
   int w=b.size.w;
+
+  // Font selection: large bumps beyond screen-size defaults
+  GFont f_temp=large?f28:(big_screen?f24:f24);
+  GFont f_date=large?f28:(big_screen?f18:f14);
+  GFont f_info=large?f24:(big_screen?f18:f14);
+  int temp_h=large?32:28;
+  int temp_y=large?18:26;
 
   // Temp + weather (top) — use peek data when peeking
   int show_temp = (s_peek>=0) ? s_d.pk_t[s_peek] : s_d.temp;
   int show_wx   = (s_peek>=0) ? s_d.pk_wx[s_peek] : s_d.wx;
-  GFont f_temp=big?f28:f24;
-  int temp_h=big?32:28;
-  int temp_y=big?22:26;
   if(!s_d.valid) {
     snprintf(s_tmp,sizeof(s_tmp),"?°");
     txt(ctx,s_tmp,f_temp,GRect(0,temp_y,w,temp_h),GTextAlignmentCenter);
@@ -724,21 +726,23 @@ static void draw_hud(GContext *ctx, GRect b) {
   }
 
   // Time
-  int ty=58;
-  GFont f_time = (s_show_sec && !big) ? fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD) : f42;
+  int ty=large?52:58;
+  GFont f_time = (s_show_sec && !big_screen && !large) ? f28 : f42;
   txt(ctx,s_tbuf,f_time,GRect(0,ty,w,50),GTextAlignmentCenter);
 
-  // Date
-  txt(ctx,s_dbuf,f_date,GRect(0,ty+44,w,22),GTextAlignmentCenter);
+  // Date — push down more when large to avoid overlap
+  int date_y=large?(ty+50):(ty+44);
+  int date_h=large?32:22;
+  txt(ctx,s_dbuf,f_date,GRect(0,date_y,w,date_h),GTextAlignmentCenter);
 
   // Sunrise/sunset times (same line as date)
   if(s_show_sun) {
     snprintf(s_sr,sizeof(s_sr),"%d:%02d",fmt_h(s_d.sr_h),s_d.sr_m);
     snprintf(s_ss,sizeof(s_ss),"%d:%02d",fmt_h(s_d.ss_h),s_d.ss_m);
-    int sun_y=ty+44;
-    int sx=big?20:14;
-    txt(ctx,s_sr,f_info,GRect(sx,sun_y,60,22),GTextAlignmentLeft);
-    txt(ctx,s_ss,f_info,GRect(w-sx-60,sun_y,60,22),GTextAlignmentRight);
+    int sun_y=date_y;
+    int sx=big_screen?20:14;
+    txt(ctx,s_sr,f_info,GRect(sx,sun_y,60,date_h),GTextAlignmentLeft);
+    txt(ctx,s_ss,f_info,GRect(w-sx-60,sun_y,60,date_h),GTextAlignmentRight);
   }
 
   // Hi/Lo temps
@@ -746,7 +750,8 @@ static void draw_hud(GContext *ctx, GRect b) {
     char hilo[16];
     snprintf(hilo,sizeof(hilo),"H:%d L:%d",s_d.hi,s_d.lo);
     graphics_context_set_text_color(ctx,C_INFO);
-    graphics_draw_text(ctx,hilo,f_info,GRect(3,b.size.h-(big?30:26),w,22),
+    int hilo_h=large?28:22;
+    graphics_draw_text(ctx,hilo,f_info,GRect(3,b.size.h-(large?34:30),w,hilo_h),
       GTextOverflowModeTrailingEllipsis,GTextAlignmentCenter,NULL);
   }
 
@@ -918,7 +923,8 @@ static void inbox_cb(DictionaryIterator *it, void *c){
     APP_LOG(APP_LOG_LEVEL_INFO,"Config: sun=%d hilo=%d sec=%d",s_show_sun,s_show_hilo,s_show_sec);
   }
   t=dict_find(it,MESSAGE_KEY_FONT_SIZE);
-  if(t) { s_font_size=(int)t->value->int32; persist_write_int(P_FONT_SIZE,s_font_size); }
+  if(t) { s_font_size=(int)t->value->int32; persist_write_int(P_FONT_SIZE,s_font_size);
+    APP_LOG(APP_LOG_LEVEL_INFO,"Font size: %d",s_font_size); }
   t=dict_find(it,MESSAGE_KEY_TOWN_NAME);
   if(t) snprintf(s_d.town,sizeof(s_d.town),"%s",t->value->cstring);
 
