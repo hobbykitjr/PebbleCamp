@@ -12,8 +12,11 @@
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-#define ANIM_INTERVAL  80
-#define ANIM_DURATION  5000
+#define ANIM_FAST      300   // Active fire: ~3 FPS
+#define ANIM_SLOW      1000  // Idle fire after 60s: 1 FPS
+#define ANIM_DIM_MS    60000 // Dim after 60s
+#define ANIM_STOP_MS   300000 // Stop after 5min
+#define ANIM_BURST     5000  // Daytime animation burst
 
 // Layout — percentages of screen height/width, computed at draw time
 // Use pct_h(pct) and pct_w(pct) macros with current bounds
@@ -118,9 +121,11 @@ typedef struct {
 // ============================================================================
 static Window *s_win;
 static Layer *s_canvas;
+static Layer *s_fire_layer;  // Small layer for fire animation only
 static AppTimer *s_timer;
 static bool s_anim=false;
 static int s_anim_ms=0;
+static GRect s_fire_bounds;  // Position/size of fire layer
 
 static int s_bat=100;
 static bool s_bt=true;
@@ -153,6 +158,9 @@ static void init_layout(int w, int h) {
   L_GROUND=h*72/100;
   L_ARC_TOP=h*10/100;
   L_ARC_BOT=h*50/100;
+  // Fire layer bounds: covers campfire area with margin for embers
+  int fcx=w*46/100, fby=L_GROUND+h*8/100;
+  s_fire_bounds=GRect(fcx-16, fby-42, 34, 56);
 }
 
 // DEV presets
@@ -391,9 +399,9 @@ static void draw_lake(GContext *ctx, GRect b) {
     graphics_context_set_fill_color(ctx,c);
     graphics_fill_rect(ctx,GRect(0,L_LAKE_TOP+y,b.size.w,1),0,GCornerNone);
   }
-  // Subtle wave shimmer
+  // Subtle wave shimmer — static per minute, not per fire frame
   graphics_context_set_fill_color(ctx,GColorPictonBlue);
-  int phase=s_fire_frame*50; // Reuse animation counter
+  int phase=s_mn*200;
   for(int x=10;x<b.size.w-10;x+=12){
     int wy=L_LAKE_TOP+8+(sin_lookup((phase+x*200)%TRIG_MAX_ANGLE)*2)/TRIG_MAX_RATIO;
     graphics_fill_rect(ctx,GRect(x,wy,6,1),0,GCornerNone);
@@ -498,9 +506,9 @@ static void draw_tent(GContext *ctx, GRect b) {
 }
 
 // ============================================================================
-// DRAW: CAMPFIRE (animated at night, logs during day)
+// DRAW: CAMPFIRE — static parts on main canvas
 // ============================================================================
-static void draw_campfire(GContext *ctx, GRect b) {
+static void draw_campfire_base(GContext *ctx, GRect b) {
   int cx=b.size.w*46/100, by=L_GROUND+L_H*8/100;
 
   // Log base (always)
@@ -516,27 +524,41 @@ static void draw_campfire(GContext *ctx, GRect b) {
   for(int i=0;i<8;i++)
     graphics_fill_rect(ctx,GRect(cx+stones[i][0],by+stones[i][1],3,3),0,GCornerNone);
   #endif
+}
+
+// ============================================================================
+// DRAW: FIRE LAYER — animated flames/smoke/embers (small layer, not full screen)
+// ============================================================================
+static void fire_layer_proc(Layer *l, GContext *ctx) {
+  GRect fb=layer_get_bounds(l);
+  // Fire center in local coords: fire layer origin is s_fire_bounds.origin
+  int cx=L_W*46/100 - s_fire_bounds.origin.x;
+  int by=L_GROUND+L_H*8/100 - s_fire_bounds.origin.y;
+
+  // Clear the layer (transparent)
+  graphics_context_set_fill_color(ctx,GColorClear);
+  graphics_fill_rect(ctx,fb,0,GCornerNone);
 
   if(!is_night()) {
-    // Daytime: thin smoke wisps
+    // Daytime: thin smoke wisps (only during burst)
     #ifdef PBL_COLOR
-    graphics_context_set_fill_color(ctx,GColorLightGray);
-    int smokey=by-8-(s_fire_frame%8);
-    graphics_fill_rect(ctx,GRect(cx-1,smokey,2,3),0,GCornerNone);
-    graphics_fill_rect(ctx,GRect(cx+1,smokey-5,2,2),0,GCornerNone);
+    if(s_anim) {
+      graphics_context_set_fill_color(ctx,GColorLightGray);
+      int smokey=by-8-(s_fire_frame%8);
+      graphics_fill_rect(ctx,GRect(cx-1,smokey,2,3),0,GCornerNone);
+      graphics_fill_rect(ctx,GRect(cx+1,smokey-5,2,2),0,GCornerNone);
+    }
     #endif
     return;
   }
 
-  // Night: animated fire!
+  // Night: animated fire
   #ifdef PBL_COLOR
-  // Flame tongues (randomized per frame)
   int seed=s_fire_frame*7+13;
   for(int i=0;i<5;i++){
     int fx=cx-6+i*3;
-    int fh=8+(seed+i*37)%10;  // Random height 8-17px
+    int fh=8+(seed+i*37)%10;
     seed=(seed*13+7)%97;
-    // Flame gradient: red base, orange mid, yellow tip
     graphics_context_set_fill_color(ctx,GColorRed);
     graphics_fill_rect(ctx,GRect(fx,by-fh,3,fh/3),0,GCornerNone);
     graphics_context_set_fill_color(ctx,GColorOrange);
@@ -545,14 +567,13 @@ static void draw_campfire(GContext *ctx, GRect b) {
     graphics_fill_rect(ctx,GRect(fx,by-fh+2*fh/3,3,fh/3+1),0,GCornerNone);
   }
 
-  // Embers (small particles floating up)
+  // Embers
   graphics_context_set_fill_color(ctx,GColorOrange);
   int e1y=by-20-(s_fire_frame%12)*2;
   int e2y=by-15-((s_fire_frame+5)%10)*2;
   if(e1y>by-40) graphics_fill_rect(ctx,GRect(cx-3,e1y,2,2),0,GCornerNone);
   if(e2y>by-35) graphics_fill_rect(ctx,GRect(cx+4,e2y,1,1),0,GCornerNone);
   #else
-  // B&W: simple fire shape
   graphics_context_set_fill_color(ctx,GColorWhite);
   for(int i=0;i<3;i++){
     int fx=cx-3+i*3, fh=6+i*2;
@@ -771,7 +792,7 @@ static void canvas_proc(Layer *l, GContext *ctx) {
   draw_mountains(ctx,b);  // Mountains drawn OVER sun/moon near horizon
   draw_lake(ctx,b);
   draw_ground(ctx,b);
-  draw_trees(ctx,b); draw_tent(ctx,b); draw_campfire(ctx,b); draw_firewood(ctx,b);
+  draw_trees(ctx,b); draw_tent(ctx,b); draw_campfire_base(ctx,b); draw_firewood(ctx,b);
   draw_hud(ctx,b);
 }
 
@@ -794,27 +815,35 @@ static void upd_time(void){
 // ============================================================================
 // ANIMATION
 // ============================================================================
+static int anim_interval(void) {
+  if(s_dev&&s_pre>=0) return ANIM_FAST;
+  if(!is_night()) return ANIM_FAST;  // Daytime bursts are short
+  if(s_anim_ms>=ANIM_DIM_MS) return ANIM_SLOW;
+  return ANIM_FAST;
+}
 static void anim_cb(void *data){
   s_timer=NULL;
+  int iv=anim_interval();
   s_fire_frame++;
-  s_anim_ms+=ANIM_INTERVAL;
-  if(s_canvas) layer_mark_dirty(s_canvas);
+  s_anim_ms+=iv;
+  // Only mark fire layer dirty — not the full canvas
+  if(s_fire_layer) layer_mark_dirty(s_fire_layer);
 
   bool indev=s_dev&&s_pre>=0;
-  bool stop=indev?false:(s_anim_ms>=ANIM_DURATION);
-  // At night, keep animating for campfire
-  if(is_night()) stop=false;
+  bool stop;
+  if(indev) { stop=false; }
+  else if(is_night()) { stop=(s_anim_ms>=ANIM_STOP_MS); }
+  else { stop=(s_anim_ms>=ANIM_BURST); }
   if(stop){s_anim=false; return;}
-  s_timer=app_timer_register(ANIM_INTERVAL,anim_cb,NULL);
+  s_timer=app_timer_register(anim_interval(),anim_cb,NULL);
   if(!s_timer) s_anim=false;
 }
 static void start_anim(void){
   if(s_anim && s_timer) return;
-  // Only cancel if we know the timer hasn't fired yet
   if(s_anim && !s_timer) { /* timer fired, just restart */ }
   else if(s_timer) { app_timer_cancel(s_timer); s_timer=NULL; }
   s_anim=true; s_anim_ms=0;
-  s_timer=app_timer_register(ANIM_INTERVAL,anim_cb,NULL);
+  s_timer=app_timer_register(anim_interval(),anim_cb,NULL);
 }
 
 // ============================================================================
@@ -823,14 +852,16 @@ static void start_anim(void){
 static void tick_cb(struct tm *t, TimeUnits u){
   if(s_dev&&s_pre>=0){
     if(!s_anim || !s_timer) start_anim();
-    else if(s_canvas) layer_mark_dirty(s_canvas);
     return;
   }
   upd_time();
-  // Keep fire animated at night
+  // Mark main canvas for time/date update
+  if(s_canvas) layer_mark_dirty(s_canvas);
+  // Restart fire animation at night if it stopped (auto-stop after 5min)
   if(is_night() && (!s_anim || !s_timer)) start_anim();
-  if(t->tm_min%5==0) start_anim();
-  else if(s_canvas) layer_mark_dirty(s_canvas);
+  // Daytime: brief animation burst every 5 min for smoke
+  if(!is_night() && t->tm_min%5==0) start_anim();
+  // Request weather every 30 min
   if(t->tm_min%30==0){
     DictionaryIterator *it;
     if(app_message_outbox_begin(&it)==APP_MSG_OK){
@@ -859,6 +890,7 @@ static void touch_cb(const TouchEvent *event, void *context){
     s_pre++; if(s_pre>=NUM_PRESETS) s_pre=0;
     apply_pre(s_pre);
     APP_LOG(APP_LOG_LEVEL_INFO,"DEV %d",s_pre);
+    if(s_canvas) layer_mark_dirty(s_canvas);
     start_anim();
   } else {
     // Cycle peek: -1 → 0 → 1 → 2 → -1
@@ -993,6 +1025,10 @@ static void win_load(Window *w){
   s_canvas=layer_create(b);
   layer_set_update_proc(s_canvas,canvas_proc);
   layer_add_child(wl,s_canvas);
+  // Fire layer: small overlay, only redraws flames
+  s_fire_layer=layer_create(s_fire_bounds);
+  layer_set_update_proc(s_fire_layer,fire_layer_proc);
+  layer_add_child(wl,s_fire_layer);
   s_bat=battery_state_service_peek().charge_percent;
   s_bt=connection_service_peek_pebble_app_connection();
   upd_time();
@@ -1002,6 +1038,7 @@ static void win_load(Window *w){
 static void win_unload(Window *w){
   if(s_timer){app_timer_cancel(s_timer);s_timer=NULL;}
   if(s_peek_timer){app_timer_cancel(s_peek_timer);s_peek_timer=NULL;}
+  if(s_fire_layer){layer_destroy(s_fire_layer);s_fire_layer=NULL;}
   if(s_canvas){layer_destroy(s_canvas);s_canvas=NULL;}
 }
 
