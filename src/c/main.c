@@ -535,9 +535,10 @@ static void fire_layer_proc(Layer *l, GContext *ctx) {
   int cx=L_W*46/100 - s_fire_bounds.origin.x;
   int by=L_GROUND+L_H*8/100 - s_fire_bounds.origin.y;
 
-  // Clear the layer (transparent)
-  graphics_context_set_fill_color(ctx,GColorClear);
+  // Black = transparent with GCompOpSet
+  graphics_context_set_fill_color(ctx,GColorBlack);
   graphics_fill_rect(ctx,fb,0,GCornerNone);
+  graphics_context_set_compositing_mode(ctx,GCompOpSet);
 
   if(!is_night()) {
     // Daytime: thin smoke wisps (only during burst)
