@@ -121,11 +121,11 @@ typedef struct {
 // ============================================================================
 static Window *s_win;
 static Layer *s_canvas;
-static Layer *s_fire_layer;  // Small layer for fire animation only
 static AppTimer *s_timer;
 static bool s_anim=false;
 static int s_anim_ms=0;
-static GRect s_fire_bounds;  // Position/size of fire layer
+static bool s_fire_only=false;  // true = clip redraw to fire area only
+static GRect s_fire_clip;       // Clip rect for fire-only redraws
 
 static int s_bat=100;
 static bool s_bt=true;
@@ -158,9 +158,9 @@ static void init_layout(int w, int h) {
   L_GROUND=h*72/100;
   L_ARC_TOP=h*10/100;
   L_ARC_BOT=h*50/100;
-  // Fire layer bounds: covers campfire area with margin for embers
+  // Fire clip rect: covers campfire area with margin for embers
   int fcx=w*46/100, fby=L_GROUND+h*8/100;
-  s_fire_bounds=GRect(fcx-16, fby-42, 34, 56);
+  s_fire_clip=GRect(fcx-16, fby-42, 34, 56);
 }
 
 // DEV presets
@@ -506,9 +506,9 @@ static void draw_tent(GContext *ctx, GRect b) {
 }
 
 // ============================================================================
-// DRAW: CAMPFIRE — static parts on main canvas
+// DRAW: CAMPFIRE (animated at night, logs during day)
 // ============================================================================
-static void draw_campfire_base(GContext *ctx, GRect b) {
+static void draw_campfire(GContext *ctx, GRect b) {
   int cx=b.size.w*46/100, by=L_GROUND+L_H*8/100;
 
   // Log base (always)
@@ -524,24 +524,9 @@ static void draw_campfire_base(GContext *ctx, GRect b) {
   for(int i=0;i<8;i++)
     graphics_fill_rect(ctx,GRect(cx+stones[i][0],by+stones[i][1],3,3),0,GCornerNone);
   #endif
-}
-
-// ============================================================================
-// DRAW: FIRE LAYER — animated flames/smoke/embers (small layer, not full screen)
-// ============================================================================
-static void fire_layer_proc(Layer *l, GContext *ctx) {
-  GRect fb=layer_get_bounds(l);
-  // Fire center in local coords: fire layer origin is s_fire_bounds.origin
-  int cx=L_W*46/100 - s_fire_bounds.origin.x;
-  int by=L_GROUND+L_H*8/100 - s_fire_bounds.origin.y;
-
-  // Black = transparent with GCompOpSet
-  graphics_context_set_fill_color(ctx,GColorBlack);
-  graphics_fill_rect(ctx,fb,0,GCornerNone);
-  graphics_context_set_compositing_mode(ctx,GCompOpSet);
 
   if(!is_night()) {
-    // Daytime: thin smoke wisps (only during burst)
+    // Daytime: thin smoke wisps (only during animation burst)
     #ifdef PBL_COLOR
     if(s_anim) {
       graphics_context_set_fill_color(ctx,GColorLightGray);
@@ -788,12 +773,20 @@ static void draw_hud(GContext *ctx, GRect b) {
 // ============================================================================
 static void canvas_proc(Layer *l, GContext *ctx) {
   GRect b=layer_get_bounds(l);
+  if(s_fire_only) {
+    // Fire-only redraw: clip to campfire area, repaint just ground+fire
+    graphics_context_set_clip_rect(ctx, s_fire_clip);
+    draw_ground(ctx,b);
+    draw_campfire(ctx,b);
+    s_fire_only=false;
+    return;
+  }
   draw_sky(ctx,b); draw_stars(ctx,b);
   draw_sun(ctx,b); draw_moon(ctx,b);
-  draw_mountains(ctx,b);  // Mountains drawn OVER sun/moon near horizon
+  draw_mountains(ctx,b);
   draw_lake(ctx,b);
   draw_ground(ctx,b);
-  draw_trees(ctx,b); draw_tent(ctx,b); draw_campfire_base(ctx,b); draw_firewood(ctx,b);
+  draw_trees(ctx,b); draw_tent(ctx,b); draw_campfire(ctx,b); draw_firewood(ctx,b);
   draw_hud(ctx,b);
 }
 
@@ -827,8 +820,9 @@ static void anim_cb(void *data){
   int iv=anim_interval();
   s_fire_frame++;
   s_anim_ms+=iv;
-  // Only mark fire layer dirty — not the full canvas
-  if(s_fire_layer) layer_mark_dirty(s_fire_layer);
+  // Clip redraw to fire area only — not the full canvas
+  s_fire_only=true;
+  if(s_canvas) layer_mark_dirty(s_canvas);
 
   bool indev=s_dev&&s_pre>=0;
   bool stop;
@@ -1026,10 +1020,6 @@ static void win_load(Window *w){
   s_canvas=layer_create(b);
   layer_set_update_proc(s_canvas,canvas_proc);
   layer_add_child(wl,s_canvas);
-  // Fire layer: small overlay, only redraws flames
-  s_fire_layer=layer_create(s_fire_bounds);
-  layer_set_update_proc(s_fire_layer,fire_layer_proc);
-  layer_add_child(wl,s_fire_layer);
   s_bat=battery_state_service_peek().charge_percent;
   s_bt=connection_service_peek_pebble_app_connection();
   upd_time();
@@ -1039,7 +1029,6 @@ static void win_load(Window *w){
 static void win_unload(Window *w){
   if(s_timer){app_timer_cancel(s_timer);s_timer=NULL;}
   if(s_peek_timer){app_timer_cancel(s_peek_timer);s_peek_timer=NULL;}
-  if(s_fire_layer){layer_destroy(s_fire_layer);s_fire_layer=NULL;}
   if(s_canvas){layer_destroy(s_canvas);s_canvas=NULL;}
 }
 
