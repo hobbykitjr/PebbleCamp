@@ -124,8 +124,6 @@ static Layer *s_canvas;
 static AppTimer *s_timer;
 static bool s_anim=false;
 static int s_anim_ms=0;
-static bool s_fire_only=false;  // true = clip redraw to fire area only
-static GRect s_fire_clip;       // Clip rect for fire-only redraws
 
 static int s_bat=100;
 static bool s_bt=true;
@@ -158,9 +156,6 @@ static void init_layout(int w, int h) {
   L_GROUND=h*72/100;
   L_ARC_TOP=h*10/100;
   L_ARC_BOT=h*50/100;
-  // Fire clip rect: covers campfire area with margin for embers
-  int fcx=w*46/100, fby=L_GROUND+h*8/100;
-  s_fire_clip=GRect(fcx-16, fby-42, 34, 56);
 }
 
 // DEV presets
@@ -773,15 +768,6 @@ static void draw_hud(GContext *ctx, GRect b) {
 // ============================================================================
 static void canvas_proc(Layer *l, GContext *ctx) {
   GRect b=layer_get_bounds(l);
-  if(s_fire_only) {
-    // Fire-only redraw: paint ground behind fire area, then fire on top
-    // Skips sky/stars/mountains/lake/trees/tent/firewood/HUD
-    graphics_context_set_fill_color(ctx,C_GROUND);
-    graphics_fill_rect(ctx,s_fire_clip,0,GCornerNone);
-    draw_campfire(ctx,b);
-    s_fire_only=false;
-    return;
-  }
   draw_sky(ctx,b); draw_stars(ctx,b);
   draw_sun(ctx,b); draw_moon(ctx,b);
   draw_mountains(ctx,b);
@@ -821,8 +807,6 @@ static void anim_cb(void *data){
   int iv=anim_interval();
   s_fire_frame++;
   s_anim_ms+=iv;
-  // Clip redraw to fire area only — not the full canvas
-  s_fire_only=true;
   if(s_canvas) layer_mark_dirty(s_canvas);
 
   bool indev=s_dev&&s_pre>=0;
