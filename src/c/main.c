@@ -774,9 +774,10 @@ static void draw_hud(GContext *ctx, GRect b) {
 static void canvas_proc(Layer *l, GContext *ctx) {
   GRect b=layer_get_bounds(l);
   if(s_fire_only) {
-    // Fire-only redraw: clip to campfire area, repaint just ground+fire
-    graphics_context_set_clip_rect(ctx, s_fire_clip);
-    draw_ground(ctx,b);
+    // Fire-only redraw: paint ground behind fire area, then fire on top
+    // Skips sky/stars/mountains/lake/trees/tent/firewood/HUD
+    graphics_context_set_fill_color(ctx,C_GROUND);
+    graphics_fill_rect(ctx,s_fire_clip,0,GCornerNone);
     draw_campfire(ctx,b);
     s_fire_only=false;
     return;
